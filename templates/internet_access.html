@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Internet Access — Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <h1>Internet Access</h1>
+  <p>Your vouchers and active connections</p>
+</div>
+
+{% if active_voucher %}
+  <div class="panel" style="background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.25);">
+    <h2 style="margin-top:0;">&#9673; Active Connection</h2>
+    <p style="color:var(--text-secondary); font-size:0.9rem;">
+      You cannot take another test while this connection is active. Come back after it expires.
+    </p>
+    <p style="font-size:1.1rem; margin:0.5rem 0;">
+      <strong style="font-family:monospace; font-size:1.25rem;">{{ active_voucher.code }}</strong>
+    </p>
+    <p style="color:var(--text-secondary); font-size:0.95rem; margin:0.25rem 0;">
+      Voucher from <strong>Level {{ active_voucher.level_number }} — {{ active_voucher.level_name }}</strong>
+    </p>
+    <p style="color:var(--text-secondary); font-size:0.95rem; margin:0.25rem 0;">
+      Expires at: <strong>{{ active_voucher.expires_at }}</strong>
+    </p>
+    {% set rem = remaining(active_voucher.expires_at) %}
+    {% if rem %}
+      <p style="color:var(--accent-green); font-weight:600; margin:0.5rem 0;">
+        Time remaining: {{ rem.seconds // 3600 }}h {{ (rem.seconds // 60) % 60 }}m
+      </p>
+    {% endif %}
+  </div>
+{% else %}
+  <div class="panel" style="background:rgba(255,255,255,.03);">
+    <h2 style="margin-top:0;">No active connection</h2>
+    <p style="color:var(--text-secondary); font-size:0.95rem;">
+      Earn a voucher by completing a mission, then come back here to connect.
+    </p>
+    <a class="btn btn-primary" href="{{ url_for('levels.index') }}">Go to Missions</a>
+  </div>
+{% endif %}
+
+<div class="panel" style="margin-top:1.5rem;">
+  <h2 style="margin-top:0;">Voucher History</h2>
+  <div class="mission-list" style="margin-top:1rem;">
+    {% for v in all_vouchers %}
+      <div class="mission-item" style="flex-direction:column; align-items:stretch; gap:0.35rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="name" style="font-family:monospace;">{{ v.code }}</span>
+          {% if voucher_active(v) %}
+            <span style="color:var(--accent-green); font-size:0.8rem; font-weight:600;">Active</span>
+          {% elif v.used_at %}
+            <span style="color:var(--accent-red, #ef4444); font-size:0.8rem; font-weight:600;">Expired</span>
+          {% else %}
+            <span style="color:var(--accent-orange); font-size:0.8rem; font-weight:600;">Unused</span>
+          {% endif %}
+        </div>
+        <span style="font-size:0.85rem; color:var(--text-secondary);">
+          Level {{ v.level_number }} — {{ v.level_name }}
+          {% if v.used_at and v.expires_at %}
+            &middot; used {{ v.used_at }} &middot; expired {{ v.expires_at }}
+          {% elif v.used_at %}
+            &middot; used {{ v.used_at }}
+          {% else %}
+            &middot; generated {{ v.created_at }}
+          {% endif %}
+        </span>
+      </div>
+    {% else %}
+      <p class="empty-state" style="color:var(--text-secondary);">No vouchers yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

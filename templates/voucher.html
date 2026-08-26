@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Access Verified — Level {{ level.level_number }} — Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <h1>Access Verified</h1>
+  <p>Level {{ level.level_number }} — {{ level.name }}</p>
+</div>
+
+<div class="panel" style="margin-bottom:1.5rem;">
+  <h2 style="margin-top:0; font-size:1.1rem;">Q. {{ question.prompt }}</h2>
+
+  <div class="mission-item" style="flex-direction:column; align-items:stretch; gap:0.35rem; margin:1.25rem 0;">
+    <div class="name" style="font-weight:600;">Your answer</div>
+    <div style="font-size:0.95rem;">
+      <strong>{{ answer.letter }}.</strong> {{ answer.choice_text }}
+      <span style="color:var(--text-secondary); font-size:0.85rem;">({{ answer.points }} pts)</span>
+    </div>
+
+    {% if answer.points == 100 %}
+      <div style="color:var(--accent-green); font-weight:600;">Correct! Great job.</div>
+    {% else %}
+      <div style="color:var(--accent-orange); font-weight:600;">
+        You earned {{ answer.points }} points.
+      </div>
+      <div style="font-size:0.9rem;">
+        Best answer: <strong>{{ correct_choice.letter }}.</strong> {{ correct_choice.choice_text }}
+      </div>
+    {% endif %}
+  </div>
+
+  <div style="background:var(--bg-panel-light, #1a2540); border-radius:0.75rem; padding:1rem; font-size:0.95rem; line-height:1.5; margin-bottom:1.5rem;">
+    <strong>Explanation:</strong><br>
+    {{ question.explanation or "The best choice is " ~ correct_choice.choice_text ~ " because it is the safest, most responsible option." }}
+  </div>
+
+  <div id="voucher-box"
+       style="background:var(--bg-panel-light, #1a2540); border-radius:0.75rem; padding:1.5rem; margin-bottom:1.5rem; border:2px dashed var(--accent-blue, #2f6fed); text-align:center; cursor:pointer; transition: transform 0.1s ease;"
+       onclick="copyVoucher()">
+    <div style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.5rem;">Internet Access Voucher Code</div>
+    <div id="voucher-code" style="font-family:monospace; font-size:1.75rem; font-weight:700; letter-spacing:0.15rem;">{{ voucher.code }}</div>
+    <div id="copy-hint" style="font-size:0.8rem; color:var(--text-secondary); margin-top:0.5rem;">Click the code to copy</div>
+  </div>
+
+  <p style="font-size:0.95rem; color:var(--text-secondary); margin-bottom:1.5rem;">
+    Tap the code to copy it, then click <strong>Next</strong> to paste it and connect to the internet.
+  </p>
+
+  <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+    <a class="btn btn-primary" href="{{ url_for('levels.connect', level_number=level.level_number) }}">Next</a>
+    {% if has_more %}
+      <a class="btn btn-outline" href="{{ url_for('levels.play', level_number=level.level_number) }}">Next Question</a>
+    {% endif %}
+    {% if is_completed or not has_more %}
+      <a class="btn btn-outline" href="{{ url_for('levels.results', level_number=level.level_number) }}">See Results</a>
+    {% endif %}
+    <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Back to Missions</a>
+    <a class="btn btn-outline" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+  </div>
+</div>
+
+<script>
+function copyVoucher() {
+  const code = document.getElementById('voucher-code').innerText;
+  const hint = document.getElementById('copy-hint');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(() => {
+      hint.innerText = 'Copied!';
+      setTimeout(() => { hint.innerText = 'Click the code to copy'; }, 1500);
+    }).catch(() => {
+      fallbackCopy(code, hint);
+    });
+  } else {
+    fallbackCopy(code, hint);
+  }
+}
+
+function fallbackCopy(text, hint) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    hint.innerText = 'Copied!';
+    setTimeout(() => { hint.innerText = 'Click the code to copy'; }, 1500);
+  } catch (err) {
+    hint.innerText = 'Press Ctrl+C to copy';
+  }
+  document.body.removeChild(ta);
+}
+</script>
+{% endblock %}

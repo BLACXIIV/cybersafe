@@ -26,7 +26,7 @@
           <select id="grade_id" name="grade_id" required>
             <option value="">Select grade</option>
             {% for grade in grades %}
-              <option value="{{ grade['id'] }}" {% if request.form.get('grade_id', type=int) == grade['id'] %}selected{% endif %}>{{ grade['name'] }}</option>
+              <option value="{{ grade['id'] }}" {% if request.form.get('grade_id') == grade['id']|string %}selected{% endif %}>{{ grade['name'] }}</option>
             {% endfor %}
           </select>
         </div>
@@ -35,7 +35,7 @@
           <select id="section_id" name="section_id" required disabled>
             <option value="">Select section</option>
             {% for section in sections %}
-              <option value="{{ section['id'] }}" data-grade-id="{{ section['grade_id'] }}" {% if request.form.get('section_id', type=int) == section['id'] %}selected{% endif %}>{{ section['name'] }}</option>
+              <option value="{{ section['id'] }}" data-grade-id="{{ section['grade_id'] }}" {% if request.form.get('section_id') == section['id']|string %}selected{% endif %}>{{ section['name'] }}</option>
             {% endfor %}
           </select>
         </div>

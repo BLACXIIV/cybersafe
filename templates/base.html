@@ -7,7 +7,7 @@
   <title>{% block title %}Cyber-S.A.F.E.{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <div class="page-wrap">
     <nav class="navbar">
       <div class="navbar-inner">
@@ -17,14 +17,21 @@
           {% else %}
             <span class="brand-icon">S</span>
           {% endif %}
-          {{ school_settings['school_name'] if school_settings else 'Cyber-S.A.F.E.' }}
+          <span class="brand-text">{{ school_settings['school_name'] if school_settings else 'Cyber-S.A.F.E.' }}</span>
         </a>
         <div class="nav-links">
           {% if g.user %}
-            <a class="btn btn-outline" href="{{ url_for('main.dashboard') }}">Dashboard</a>
-            <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Missions</a>
-            {% if g.user['role'] == 'admin' %}<a class="btn btn-outline" href="{{ url_for('admin.dashboard') }}">Admin</a>{% endif %}
-            <a class="btn btn-primary" href="{{ url_for('auth.logout') }}">Log Out</a>
+            {% if active_voucher_flag %}
+              <a href="{{ url_for('main.internet_access') }}" class="nav-pill{% if not block_tests_when_active %} nav-pill-dev{% endif %}">
+                <span class="nav-pill-dot"></span>
+                <span class="nav-pill-text">Net Active</span>
+                {% if not block_tests_when_active %}<span class="nav-pill-hint">off</span>{% endif %}
+              </a>
+            {% endif %}
+            <a class="btn btn-outline nav-btn" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+            <a class="btn btn-outline nav-btn" href="{{ url_for('levels.index') }}">Missions</a>
+            {% if g.user['role'] == 'admin' %}<a class="btn btn-outline nav-btn" href="{{ url_for('admin.dashboard') }}">Admin</a>{% endif %}
+            <a class="btn btn-primary nav-btn" href="#" id="logout-trigger">Log Out</a>
           {% else %}
             <a class="btn btn-outline" href="{{ url_for('auth.login') }}">Log In</a>
             <a class="btn btn-primary" href="{{ url_for('auth.signup') }}">Sign Up</a>
@@ -49,6 +56,59 @@
       &copy; {{ 2026 }} Cyber-S.A.F.E. &mdash; Cybersecurity Awareness &amp; Education System
     </footer>
   </div>
+  <div id="logout-modal" class="modal-overlay" style="display:none;" aria-hidden="true">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="logout-title">
+      <h2 id="logout-title" style="margin:0 0 0.5rem; font-size:1rem;">Log Out?</h2>
+      <p style="margin:0 0 1rem; color:var(--text-secondary); font-size:0.9rem;">Are you sure you want to log out?</p>
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+        <button class="btn btn-outline" id="logout-cancel">Cancel</button>
+        <a class="btn btn-primary" href="{{ url_for('auth.logout') }}">Log Out</a>
+      </div>
+    </div>
+  </div>
+
   {% block scripts %}{% endblock %}
+  <script>
+  (function() {
+    const trigger = document.getElementById('logout-trigger');
+    const modal = document.getElementById('logout-modal');
+    const cancel = document.getElementById('logout-cancel');
+    if (!trigger || !modal || !cancel) return;
+    function openModal(e) {
+      e.preventDefault();
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+    }
+    function closeModal() {
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    trigger.addEventListener('click', openModal);
+    cancel.addEventListener('click', closeModal);
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeModal();
+    });
+  })();
+  </script>
+  <script>
+  (function() {
+    const main = document.querySelector('main');
+    if (!main) return;
+    let roots = Array.from(main.children).filter(function(el) {
+      return el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE' && !el.classList.contains('flash');
+    });
+    // If the page is wrapped in a single container, animate its children instead.
+    if (roots.length === 1 && roots[0].children.length > 1) {
+      roots = Array.from(roots[0].children).filter(function(el) {
+        return el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE';
+      });
+    }
+    roots.forEach(function(el, i) {
+      if (el.classList.contains('fade-up') || el.classList.contains('no-fade')) return;
+      el.classList.add('fade-up');
+      el.style.animationDelay = (i * 0.08) + 's';
+    });
+  })();
+  </script>
 </body>
 </html>

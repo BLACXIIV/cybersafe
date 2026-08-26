@@ -4,7 +4,7 @@
 {% block content %}
 <div class="dashboard-header">
   <h1>Cyber-S.A.F.E. Missions</h1>
-  <p>Complete each level in order. Each question is answered once — make it count.</p>
+  <p>Complete each level in order. You can retake completed levels to improve your score.</p>
 </div>
 
 <div class="mission-list">
@@ -17,9 +17,20 @@
           Level {{ lvl.level_number }} — {{ lvl.name }}
         </span>
         {% if item.unlocked %}
-          <a class="btn btn-primary" href="{{ url_for('levels.play', level_number=lvl.level_number) }}">
-            {% if item.status == 'completed' %}Review{% elif item.answered > 0 %}Continue{% else %}Start{% endif %}
-          </a>
+          <div style="display:flex; gap:0.5rem;">
+            {% if item.status == 'completed' %}
+              {% if item.is_perfect %}
+                <a class="btn btn-outline" href="{{ url_for('levels.results', level_number=lvl.level_number) }}">Results</a>
+              {% else %}
+                <a class="btn btn-primary" href="{{ url_for('levels.play', level_number=lvl.level_number) }}">Retake</a>
+                <a class="btn btn-outline" href="{{ url_for('levels.results', level_number=lvl.level_number) }}">Results</a>
+              {% endif %}
+            {% else %}
+              <a class="btn btn-primary" href="{{ url_for('levels.play', level_number=lvl.level_number) }}">
+                {% if item.answered > 0 %}Continue{% else %}Start{% endif %}
+              </a>
+            {% endif %}
+          </div>
         {% else %}
           <span class="btn btn-outline" style="opacity:0.6;">Locked</span>
         {% endif %}

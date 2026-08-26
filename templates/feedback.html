@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if answer.points == 100 %}Correct!{% elif answer.points == 0 %}Keep Trying{% else %}Feedback{% endif %} — Level {{ level.level_number }} — Cyber-S.A.F.E.
+{% endblock %}
+
+{% set is_perfect = answer.points == 100 %}
+{% set is_wrong = answer.points == 0 %}
+
+{% block body_class %}{% if is_wrong %}sad-mode{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+  body.sad-mode {
+    filter: grayscale(100%) brightness(0.85) contrast(1.05);
+    animation: fadeToGray 1.5s ease forwards;
+  }
+
+  @keyframes fadeToGray {
+    from {
+      filter: grayscale(0%) brightness(1) contrast(1);
+    }
+    to {
+      filter: grayscale(100%) brightness(0.85) contrast(1.05);
+    }
+  }
+
+  body.sad-mode .dashboard-header h1,
+  body.sad-mode .dashboard-header p {
+    color: #d0d0d0;
+  }
+
+  body.sad-mode .btn-primary {
+    background: #444;
+    color: #e0e0e0;
+    box-shadow: none;
+  }
+
+  body.sad-mode .btn-outline {
+    border-color: #666;
+    color: #ccc;
+  }
+
+  #confetti-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+  }
+</style>
+
+<div class="dashboard-header">
+  <h1>
+    {% if is_perfect %}Correct!{% elif is_wrong %}Not quite{% else %}Feedback &amp; Learning{% endif %}
+  </h1>
+  <p>Level {{ level.level_number }} — {{ level.name }}</p>
+</div>
+
+<div class="panel feedback-panel">
+  <h2 style="margin-top:0; font-size:1.1rem;">Q. {{ question.prompt }}</h2>
+
+  <div class="mission-item" style="flex-direction:column; align-items:stretch; gap:0.35rem; margin:1.25rem 0;">
+    <div class="name" style="font-weight:600;">Your answer</div>
+    <div style="font-size:0.95rem;">
+      <strong>{{ answer.letter }}.</strong> {{ answer.choice_text }}
+      <span style="color:var(--text-secondary); font-size:0.85rem;">({{ answer.points }} pts)</span>
+    </div>
+
+    {% if is_perfect %}
+      <div style="color:var(--accent-green); font-weight:600; font-size:1.1rem;">Correct! Great job.</div>
+    {% elif is_wrong %}
+      <div style="color:var(--accent-red, #ef4444); font-weight:600; font-size:1.1rem;">Not quite.</div>
+      <div style="font-size:0.9rem;">
+        Best answer: <strong>{{ correct_choice.letter }}.</strong> {{ correct_choice.choice_text }}
+      </div>
+    {% else %}
+      <div style="color:var(--accent-orange); font-weight:600;">
+        You earned {{ answer.points }} points.
+      </div>
+      <div style="font-size:0.9rem;">
+        Best answer: <strong>{{ correct_choice.letter }}.</strong> {{ correct_choice.choice_text }}
+      </div>
+    {% endif %}
+  </div>
+
+  <div style="background:var(--bg-panel-light, #1a2540); border-radius:0.75rem; padding:1rem; font-size:0.95rem; line-height:1.5;">
+    <strong>Explanation:</strong><br>
+    {{ question.explanation or "The best choice is " ~ correct_choice.choice_text ~ " because it is the safest, most responsible option." }}
+  </div>
+
+  <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1.5rem;">
+    {% if is_wrong %}
+      {% if has_more %}
+        <a class="btn btn-primary" href="{{ url_for('levels.play', level_number=level.level_number) }}">Next Question</a>
+      {% endif %}
+    {% else %}
+      {% if has_voucher %}
+        <a class="btn btn-primary" href="{{ url_for('levels.voucher', level_number=level.level_number, question_id=question.id) }}">View Voucher</a>
+      {% else %}
+        <a class="btn btn-primary" href="{{ url_for('levels.voucher', level_number=level.level_number, question_id=question.id) }}">Claim Access Voucher</a>
+      {% endif %}
+      {% if has_more %}
+        <a class="btn btn-outline" href="{{ url_for('levels.play', level_number=level.level_number) }}">Next Question</a>
+      {% endif %}
+    {% endif %}
+
+    {% if is_completed or not has_more %}
+      <a class="btn btn-outline" href="{{ url_for('levels.results', level_number=level.level_number) }}">See Results</a>
+    {% endif %}
+
+    <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Back to Missions</a>
+  </div>
+</div>
+
+{% if is_perfect %}
+<canvas id="confetti-canvas"></canvas>
+<script>
+(function() {
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const colors = ['#22d3ee', '#2f6fed', '#22c55e', '#f59e0b', '#ef4444', '#a855f7'];
+  const pieces = [];
+  const pieceCount = 120;
+
+  for (let i = 0; i < pieceCount; i++) {
+    pieces.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      size: Math.random() * 8 + 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      speed: Math.random() * 3 + 2,
+      drift: Math.random() * 2 - 1,
+      spin: Math.random() * 0.2 - 0.1,
+      angle: Math.random() * Math.PI * 2
+    });
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let active = false;
+    for (const p of pieces) {
+      p.y += p.speed;
+      p.x += p.drift;
+      p.angle += p.spin;
+      if (p.y < canvas.height + 20) {
+        active = true;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+        ctx.restore();
+      }
+    }
+    frame++;
+    if (active && frame < 360) {
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  animate();
+
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

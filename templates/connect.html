@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Connect to Internet — Level {{ level.level_number }} — Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <h1>Internet Access</h1>
+  <p>Level {{ level.level_number }} — {{ level.name }}</p>
+</div>
+
+<div class="panel" style="max-width:28rem; margin:0 auto 1.5rem; text-align:center;">
+  {% if connected %}
+    <div style="font-size:3.5rem; margin-bottom:0.5rem;" aria-hidden="true">&#10003;</div>
+    <h2 style="margin-top:0;">{% if already_used %}Already Connected{% else %}Connected!{% endif %}</h2>
+    <p style="color:var(--text-secondary); font-size:0.95rem;">
+      Your voucher <strong style="font-family:monospace;">{{ voucher.code }}</strong> has been accepted.
+      Internet access is now active for this session.
+    </p>
+    <p style="color:var(--text-secondary); font-size:0.95rem;">
+      Expires at: <strong>{{ voucher.expires_at }}</strong>
+    </p>
+    <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap; margin-top:1.5rem;">
+      <a class="btn btn-primary" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+      <a class="btn btn-outline" href="{{ url_for('main.internet_access') }}">Internet Access</a>
+    </div>
+  {% elif is_expired %}
+    <div style="font-size:2.5rem; margin-bottom:0.5rem;" aria-hidden="true">&#9200;</div>
+    <h2 style="margin-top:0;">Voucher Expired</h2>
+    <p style="color:var(--text-secondary); font-size:0.95rem;">
+      This voucher expired at <strong>{{ voucher.expires_at }}</strong>.<br>
+      Each voucher is one-time use. Take the mission again to earn a new one.
+    </p>
+    <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap; margin-top:1.5rem;">
+      <a class="btn btn-primary" href="{{ url_for('levels.play', level_number=level.level_number) }}">Retake Mission</a>
+      <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Back to Missions</a>
+    </div>
+  {% else %}
+    <h2 style="margin-top:0;">Paste your voucher</h2>
+    <p style="color:var(--text-secondary); font-size:0.95rem;">
+      Copy the voucher code from the previous screen and paste it below to connect to the internet.
+    </p>
+
+    <form method="post" style="margin-top:1.5rem;">
+      <div class="form-group" style="text-align:left; margin-bottom:1rem;">
+        <label for="voucher_code" style="display:block; font-size:0.85rem; color:var(--text-secondary); margin-bottom:0.35rem;">Voucher Code</label>
+        <input type="text" id="voucher_code" name="voucher_code" placeholder="Paste or type your voucher code"
+               style="width:100%; padding:0.75rem 1rem; border-radius:0.6rem; border:1px solid var(--border-color); background:rgba(26,37,64,.65); color:var(--text-primary); font-family:monospace; font-size:1.1rem; text-align:center;"
+               required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Connect to Internet</button>
+    </form>
+
+    <div style="margin-top:1.25rem;">
+      <a class="btn btn-outline" href="{{ url_for('levels.voucher', level_number=level.level_number) }}">Back to Voucher</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

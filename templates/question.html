@@ -4,11 +4,6 @@
 {% block content %}
 <div class="dashboard-header">
   <h1>Level {{ level.level_number }} — {{ level.name }}</h1>
-  <p>Question {{ question_position }} of {{ total_questions }} &middot; one attempt per question</p>
-</div>
-
-<div class="progress-bar" style="margin-bottom:1.5rem;">
-  <div class="progress-bar-fill" style="width: {{ ((question_position - 1) / total_questions) * 100 }}%;"></div>
 </div>
 
 <div class="panel">

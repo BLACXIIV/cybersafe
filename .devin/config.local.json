@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Exec(.venv\\Scripts\\python)"
+      "Exec(.venv\\Scripts\\python)",
+      "Exec(python)",
+      "Exec(ls database)",
+      "Exec(rm)",
+      "Exec(pytest)",
+      "Exec(git status)",
+      "Exec(ls)"
     ]
   }
 }

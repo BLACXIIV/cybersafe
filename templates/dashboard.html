@@ -8,9 +8,8 @@
       {{ (user['full_name'] or 'Cyber Guardian').split()[0][0] }}{{ (user['full_name'] or 'Cyber Guardian').split()[-1][0] }}
     </div>
     <div>
-      <p class="eyebrow">Welcome back,</p>
       <h1>{{ user['full_name'] }}</h1>
-      <p>{{ user['grade_section'] or 'Cyber Guardian' }}</p>
+      <p class="eyebrow">{{ user['grade_section'] or 'Cyber Guardian' }}</p>
     </div>
   </header>
 
@@ -25,8 +24,11 @@
     </div>
 
     <div class="hero-avatar-wrap float">
-      <div class="hero-avatar-aura pulse-glow"></div>
-      <div class="hero-avatar" aria-hidden="true">
+      {% if request.args.get('welcome') %}
+        <div class="hero-speech-bubble">Welcome back, {{ user['full_name'] }}!</div>
+      {% endif %}
+      <div class="hero-avatar-aura pulse-glow rank-{{ rank_info.current_badge|lower }}"></div>
+      <div class="hero-avatar rank-{{ rank_info.current_badge|lower }}" aria-hidden="true">
         <span class="robot-antenna"></span>
         <span class="robot-head"><span class="avatar-visor"></span><span class="avatar-lock">+</span></span>
         <span class="robot-neck"></span>
@@ -40,29 +42,53 @@
 
     <div class="dashboard-hero-body">
       <div class="hero-level-row">
-        <strong>Level: {{ user['level'] }}</strong>
-        <span>{{ user['points'] }} / {{ [user['points'] + 500, 500]|max }} XP</span>
+        <strong>{{ rank_info.current_title }} — {{ rank_info.current_badge }}</strong>
+        <span>{{ rank_info.points }} / {{ rank_info.max_points }} XP</span>
       </div>
-      <div class="xp-track" aria-label="Overall progress: {{ overall_pct }} percent">
-        <div class="xp-fill" style="width: {{ overall_pct }}%;"></div>
+      {% set pct = rank_info.pct %}
+      {% set next_left = (rank_info.next_threshold / rank_info.max_points * 100) if rank_info.max_points else 0 %}
+      <style>
+        .xp-track { --pct: {{ pct }}%; --next-left: {{ next_left }}%; }
+      </style>
+      <div class="xp-track" aria-label="Overall progress: {{ pct }} percent">
+        <div class="xp-fill badge-{{ rank_info.current_badge|lower }}"></div>
+        {% if rank_info.next_badge %}
+          <div class="xp-next-arrow">▲</div>
+        {% endif %}
       </div>
+      <div class="xp-badges">
+        {% for badge in ['Bronze', 'Silver', 'Gold', 'Platinum'] %}
+          <span class="{% if rank_info.current_badge == badge %}active{% endif %}">{{ badge }}</span>
+        {% endfor %}
+      </div>
+      {% if rank_info.next_badge %}
+        <div class="next-badge">▶ {{ rank_info.points_to_next }} pts to {{ rank_info.next_badge }}</div>
+      {% else %}
+        <div class="next-badge platinum-max">🏆 Platinum Master</div>
+      {% endif %}
 
       <div class="hero-stat-grid">
         <div class="hero-stat"><strong>{{ user['points'] }}</strong><span>Points</span></div>
         <div class="hero-stat"><strong>{{ level_summaries|length }}</strong><span>Missions</span></div>
-        <div class="hero-stat"><strong>{{ overall_pct }}%</strong><span>Progress</span></div>
+        <div class="hero-stat"><strong>{{ rank_info.pct }}%</strong><span>Progress</span></div>
       </div>
     </div>
   </section>
 
-  <section class="access-status fade-up fade-up-2">
-    <div class="access-icon" aria-hidden="true">&#9673;</div>
-    <div>
-      <strong>Internet Access {{ 'Active' if overall_pct >= 100 else 'Locked' }}</strong>
-      <span>{{ 'Your learning clearance is active.' if overall_pct >= 100 else 'Complete your missions to unlock access.' }}</span>
-    </div>
-    <span class="access-dot" aria-hidden="true"></span>
-  </section>
+  <a href="{{ url_for('main.internet_access') }}" style="text-decoration:none; color:inherit;">
+    <section class="access-status fade-up fade-up-2">
+      <div class="access-icon" aria-hidden="true">&#9673;</div>
+      <div>
+        <strong>Internet Access {{ 'Active' if active_voucher else 'Locked' }}</strong>
+        {% if active_voucher %}
+          <span>Active until {{ active_voucher.expires_at }} — click for details</span>
+        {% else %}
+          <span>Earn a voucher by answering a mission question correctly.</span>
+        {% endif %}
+      </div>
+      <span class="access-dot" aria-hidden="true"></span>
+    </section>
+  </a>
 
   <section class="dashboard-section fade-up fade-up-3">
     <div class="section-heading">
@@ -71,13 +97,23 @@
     </div>
     <div class="mission-list">
       {% for item in level_summaries %}
-        <a class="mission-item mission-{{ item.status }}" href="{{ url_for('levels.play', level_number=item.level.level_number) }}">
+        <a class="mission-item {% if not item.unlocked %}mission-locked{% else %}mission-{{ item.status }}{% endif %}" href="{% if item.unlocked %}{{ url_for('levels.play', level_number=item.level.level_number) }}{% else %}{{ url_for('levels.index') }}{% endif %}">
           <span class="mission-icon" aria-hidden="true">
-            {% if item.status == 'completed' %}&#10003;{% elif item.status == 'in_progress' %}&#9654;{% else %}&#128274;{% endif %}
+            {% if item.status == 'completed' %}&#10003;{% elif item.status == 'in_progress' %}&#9654;{% elif not item.unlocked %}&#128274;{% else %}&#9654;{% endif %}
           </span>
           <span class="mission-copy">
             <strong>{{ item.level.name }}</strong>
-            <small>{{ 'Completed' if item.status == 'completed' else ('In Progress' if item.status == 'in_progress' else 'Locked') }}</small>
+            <small>
+              {% if item.status == 'completed' %}
+                Completed
+              {% elif item.status == 'in_progress' %}
+                In Progress
+              {% elif not item.unlocked %}
+                Locked
+              {% else %}
+                Start
+              {% endif %}
+            </small>
           </span>
           <span class="mission-arrow" aria-hidden="true">&#8250;</span>
         </a>
@@ -88,3 +124,29 @@
   </section>
 </section>
 {% endblock %}
+
+{% if request.args.get('welcome') %}
+{% block scripts %}
+<script>
+(function() {
+  const bubble = document.querySelector('.hero-speech-bubble');
+  if (!bubble) return;
+  const originalText = bubble.textContent;
+  bubble.textContent = '';
+  // Start typing after the hero-speech-bubble fade-up finishes (0.35s delay + 0.5s duration)
+  const startOffset = 0.95;
+  for (let i = 0; i < originalText.length; i++) {
+    const span = document.createElement('span');
+    span.textContent = originalText[i];
+    span.className = 'type-char';
+    span.style.animationDelay = (startOffset + (i * 0.04)) + 's';
+    bubble.appendChild(span);
+  }
+  const cursor = document.createElement('span');
+  cursor.className = 'type-cursor';
+  cursor.style.animationDelay = (startOffset + (originalText.length * 0.04)) + 's';
+  bubble.appendChild(cursor);
+})();
+</script>
+{% endblock %}
+{% endif %}

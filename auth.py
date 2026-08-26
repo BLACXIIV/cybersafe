@@ -114,10 +114,9 @@ def login():
         if error is None:
             session.clear()
             session["user_id"] = user["id"]
-            flash(f"Welcome back, {user['full_name']}!", "success")
             if user["role"] == "admin":
-                return redirect(url_for("admin.dashboard"))
-            return redirect(url_for("main.dashboard"))
+                return redirect(url_for("admin.dashboard", welcome=1))
+            return redirect(url_for("main.dashboard", welcome=1))
 
         flash(error, "error")
 
@@ -127,7 +126,6 @@ def login():
 @bp.route("/logout")
 def logout():
     session.clear()
-    flash("You have been logged out.", "success")
     return redirect(url_for("main.landing"))
 
 

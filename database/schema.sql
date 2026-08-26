@@ -35,7 +35,8 @@ CREATE TABLE questions (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     level_id        INTEGER NOT NULL REFERENCES levels(id),
     question_number INTEGER NOT NULL,
-    prompt          TEXT NOT NULL
+    prompt          TEXT NOT NULL,
+    explanation     TEXT
 );
 
 -- Each choice carries its own point value (0/25/50/100) rather than a
@@ -67,6 +68,19 @@ CREATE TABLE user_level_progress (
     level_id     INTEGER NOT NULL REFERENCES levels(id),
     status       TEXT NOT NULL DEFAULT 'locked',  -- locked | in_progress | mastered
     total_points INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(user_id, level_id)
+);
+
+-- Vouchers earned by students for verified, non-zero mission performance.
+-- One code per user/level; the code is revealed on the access-verification page.
+CREATE TABLE vouchers (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    level_id   INTEGER NOT NULL REFERENCES levels(id),
+    code       TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    used_at    TIMESTAMP,
+    expires_at TIMESTAMP,
     UNIQUE(user_id, level_id)
 );
 

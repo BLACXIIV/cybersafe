@@ -51,8 +51,8 @@ def seed():
 
         for q in level["questions"]:
             cur.execute(
-                "INSERT INTO questions (level_id, question_number, prompt) VALUES (?, ?, ?)",
-                (level_id, q["question_number"], q["prompt"]),
+                "INSERT INTO questions (level_id, question_number, prompt, explanation) VALUES (?, ?, ?, ?)",
+                (level_id, q["question_number"], q["prompt"], q.get("explanation")),
             )
             question_id = cur.lastrowid
             question_count += 1

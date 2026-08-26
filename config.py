@@ -7,3 +7,6 @@ class Config:
     SECRET_KEY = os.environ.get("CYBERSAFE_SECRET_KEY", "dev-secret-change-me")
     DATABASE_PATH = os.path.join(BASE_DIR, "database", "cybersafe.db")
     SCHEMA_PATH = os.path.join(BASE_DIR, "database", "schema.sql")
+    # Disable in development: when True, users cannot take tests while a voucher
+    # is actively connected.
+    BLOCK_TESTS_WHEN_ACTIVE = False
