@@ -9,28 +9,7 @@ from database.db import get_db
 bp = Blueprint("main", __name__)
 
 
-BADGE_TITLES = {
-    "Bronze": "Cyber Rookie",
-    "Silver": "Cyber Sentinel",
-    "Gold": "Cyber Guardian",
-    "Platinum": "Cyber Master",
-}
-
-
-def _rank_info(points, max_points):
-    """Return current badge, hero title, next badge name and next threshold."""
-    if max_points <= 0:
-        return "Bronze", BADGE_TITLES["Bronze"], "Silver", BADGE_TITLES["Silver"], 0, 0
-    t1 = max_points // 4
-    t2 = max_points // 2
-    t3 = max_points * 3 // 4
-    if points < t1:
-        return "Bronze", BADGE_TITLES["Bronze"], "Silver", BADGE_TITLES["Silver"], t1, t1 - points
-    if points < t2:
-        return "Silver", BADGE_TITLES["Silver"], "Gold", BADGE_TITLES["Gold"], t2, t2 - points
-    if points < t3:
-        return "Gold", BADGE_TITLES["Gold"], "Platinum", BADGE_TITLES["Platinum"], t3, t3 - points
-    return "Platinum", BADGE_TITLES["Platinum"], None, None, max_points, 0
+from ranks import BADGE_TITLES, rank_info as _rank_info
 
 
 def _mission_summary():
@@ -198,16 +177,6 @@ def internet_access_toggle():
     # No active voucher; try to connect an unused one.
     unused = next((v for v in all_vouchers if v["used_at"] is None and v["expires_at"] is None), None)
     if unused is None:
-        # If the most recent voucher was used but is now off (used_at set but expired?), allow re-use by clearing it.
-        for v in all_vouchers:
-            if v["used_at"] is not None:
-                db.execute(
-                    "UPDATE vouchers SET used_at = NULL, expires_at = NULL WHERE id = ?",
-                    (v["id"],),
-                )
-                db.commit()
-                flash("Internet access turned off.", "success")
-                return redirect(url_for("main.internet_access"))
         flash("No voucher available. Complete a mission to earn one.", "error")
         return redirect(url_for("main.internet_access"))
 

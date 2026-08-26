@@ -50,6 +50,8 @@ def ensure_admin_data(app):
         columns = {row[1] for row in db.execute("PRAGMA table_info(users)").fetchall()}
         if "role" not in columns:
             db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'student'")
+        if "is_active" not in columns:
+            db.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
 
         db.execute("""CREATE TABLE IF NOT EXISTS school_settings (
             id INTEGER PRIMARY KEY CHECK (id = 1),

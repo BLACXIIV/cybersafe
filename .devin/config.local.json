@@ -7,7 +7,9 @@
       "Exec(rm)",
       "Exec(pytest)",
       "Exec(git status)",
-      "Exec(ls)"
+      "Exec(ls)",
+      "Exec(git show)",
+      "Exec(Remove-Item)"
     ]
   }
 }

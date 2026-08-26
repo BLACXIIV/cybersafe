@@ -7,20 +7,34 @@
   <p>Your vouchers and active connections</p>
 </div>
 
+{% set has_unused = all_vouchers | selectattr('used_at', 'none') | selectattr('expires_at', 'none') | list | length > 0 %}
+<form method="post" action="{{ url_for('main.internet_access_toggle') }}" class="panel {% if active_voucher %}panel-active{% else %}panel-inactive{% endif %}">
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+    <div>
+      <h2 style="margin:0;">
+        {% if active_voucher %}&#9673; Internet Access On{% else %}Internet Access Off{% endif %}
+      </h2>
+      <p style="color:var(--text-secondary); font-size:0.85rem; margin:0.25rem 0 0;">
+        {% if active_voucher %}
+          Active until {{ active_voucher.expires_at }}
+        {% else %}
+          {% if has_unused %}You have an unused voucher.{% else %}Earn a voucher by completing a mission.{% endif %}
+        {% endif %}
+      </p>
+    </div>
+    <button type="submit" class="btn {% if active_voucher %}btn-outline{% else %}btn-primary{% endif %}" {% if not active_voucher and not has_unused %}disabled style="opacity:0.5; cursor:not-allowed;"{% endif %}>
+      {{ 'Turn Off' if active_voucher else 'Turn On' }}
+    </button>
+  </div>
+</form>
+
 {% if active_voucher %}
-  <div class="panel" style="background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.25);">
-    <h2 style="margin-top:0;">&#9673; Active Connection</h2>
-    <p style="color:var(--text-secondary); font-size:0.9rem;">
-      You cannot take another test while this connection is active. Come back after it expires.
-    </p>
+  <div class="panel">
     <p style="font-size:1.1rem; margin:0.5rem 0;">
       <strong style="font-family:monospace; font-size:1.25rem;">{{ active_voucher.code }}</strong>
     </p>
     <p style="color:var(--text-secondary); font-size:0.95rem; margin:0.25rem 0;">
       Voucher from <strong>Level {{ active_voucher.level_number }} — {{ active_voucher.level_name }}</strong>
-    </p>
-    <p style="color:var(--text-secondary); font-size:0.95rem; margin:0.25rem 0;">
-      Expires at: <strong>{{ active_voucher.expires_at }}</strong>
     </p>
     {% set rem = remaining(active_voucher.expires_at) %}
     {% if rem %}
@@ -28,14 +42,6 @@
         Time remaining: {{ rem.seconds // 3600 }}h {{ (rem.seconds // 60) % 60 }}m
       </p>
     {% endif %}
-  </div>
-{% else %}
-  <div class="panel" style="background:rgba(255,255,255,.03);">
-    <h2 style="margin-top:0;">No active connection</h2>
-    <p style="color:var(--text-secondary); font-size:0.95rem;">
-      Earn a voucher by completing a mission, then come back here to connect.
-    </p>
-    <a class="btn btn-primary" href="{{ url_for('levels.index') }}">Go to Missions</a>
   </div>
 {% endif %}
 

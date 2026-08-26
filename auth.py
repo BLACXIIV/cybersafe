@@ -110,6 +110,8 @@ def login():
             error = "Incorrect username/email or password."
         elif not check_password_hash(user["password_hash"], password):
             error = "Incorrect username/email or password."
+        elif not user["is_active"]:
+            error = "This account has been suspended. Contact an administrator."
 
         if error is None:
             session.clear()
@@ -136,6 +138,11 @@ def load_logged_in_user():
     if user_id is None:
         g.user = None
     else:
-        g.user = get_db().execute(
+        user = get_db().execute(
             "SELECT * FROM users WHERE id = ?", (user_id,)
         ).fetchone()
+        if user and not user["is_active"]:
+            session.clear()
+            g.user = None
+        else:
+            g.user = user

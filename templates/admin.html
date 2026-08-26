@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "hero_avatar.html" import render_hero_avatar %}
 {% block title %}Admin Dashboard - Cyber-S.A.F.E.{% endblock %}
 
 {% block content %}
@@ -11,6 +12,39 @@
     </div>
     <span class="admin-badge">Administrator</span>
   </header>
+
+  <section class="admin-panel hero-showcase-panel">
+    <div class="admin-panel-heading"><h2>Hero Showcase</h2><span>Badge designs</span></div>
+    <div class="hero-showcase" data-active="0">
+      {% set badge_titles = {'Bronze': 'Cyber Rookie', 'Silver': 'Cyber Sentinel', 'Gold': 'Cyber Guardian', 'Platinum': 'Cyber Master'} %}
+      <div class="hero-showcase-carousel">
+        <button type="button" class="hero-showcase-arrow hero-showcase-prev" aria-label="Previous hero">&#8249;</button>
+        <div class="hero-showcase-viewport">
+          <div class="hero-showcase-track" data-start="1">
+            <div class="hero-showcase-slide clone" data-rank="Platinum" data-index="3">
+              <div class="hero-showcase-avatar">{{ render_hero_avatar('Platinum') }}</div>
+              <strong class="hero-showcase-title">{{ badge_titles['Platinum'] }}</strong>
+              <span class="hero-showcase-rank">Platinum</span>
+            </div>
+            {% for rank in ['Bronze', 'Silver', 'Gold', 'Platinum'] %}
+              <div class="hero-showcase-slide {% if loop.first %}active{% endif %}" data-rank="{{ rank }}" data-index="{{ loop.index0 }}">
+                <div class="hero-showcase-avatar">{{ render_hero_avatar(rank) }}</div>
+                <strong class="hero-showcase-title">{{ badge_titles[rank] }}</strong>
+                <span class="hero-showcase-rank">{{ rank }}</span>
+              </div>
+            {% endfor %}
+            <div class="hero-showcase-slide clone" data-rank="Bronze" data-index="0">
+              <div class="hero-showcase-avatar">{{ render_hero_avatar('Bronze') }}</div>
+              <strong class="hero-showcase-title">{{ badge_titles['Bronze'] }}</strong>
+              <span class="hero-showcase-rank">Bronze</span>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="hero-showcase-arrow hero-showcase-next" aria-label="Next hero">&#8250;</button>
+      </div>
+
+    </div>
+  </section>
 
   <div class="admin-grid">
     <section class="admin-panel">
@@ -30,7 +64,7 @@
       <div class="admin-panel-heading"><h2>Grades and sections</h2><span>{{ grades|length }} grades</span></div>
       <form class="grade-form" method="post">
         <input type="hidden" name="action" value="add_grade">
-        <input class="admin-input" name="grade_name" placeholder="e.g. Grade 10" required>
+        <input class="admin-input" name="grade_name" placeholder="Grade level" required>
         <button class="btn btn-primary" type="submit">Add</button>
       </form>
       <div class="grade-list">
@@ -57,14 +91,107 @@
   </div>
 
   <section class="admin-panel ranking-panel">
-    <div class="admin-panel-heading"><h2>Student rankings</h2><span>Points leaderboard</span></div>
+    <div class="admin-panel-heading">
+      <h2>Student rankings</h2>
+      <form method="get" class="badge-filter" action="{{ url_for('admin.dashboard') }}">
+        <select class="admin-input" name="badge" onchange="this.form.submit()">
+          <option value="" {% if not badge_filter %}selected{% endif %}>All badges</option>
+          {% for badge, title in badges.items() %}
+            <option value="{{ badge }}" {% if badge_filter == badge %}selected{% endif %}>{{ title }} ({{ badge }})</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
     {% if rankings %}
       <div class="ranking-list">
         {% for student in rankings %}
-          <div class="ranking-row"><strong class="ranking-position">{{ loop.index }}</strong><div class="ranking-name"><strong>{{ student['full_name'] }}</strong><small>{{ student['grade_section'] or 'No section' }} · {{ student['level'] }}</small></div><strong class="ranking-points">{{ student['points'] }} <small>pts</small></strong></div>
+          <div class="ranking-row">
+            <strong class="ranking-position">{{ loop.index }}</strong>
+            <div class="ranking-name">
+              <strong>{{ student['full_name'] }}{% if not student['is_active'] %} <span class="suspended-tag">suspended</span>{% endif %}</strong>
+              <small>{{ student['grade_section'] or 'No section' }} · {{ student['current_title'] }}</small>
+            </div>
+            <div class="ranking-points">
+              <strong>{{ student['points'] }} <small>pts</small></strong>
+              <span class="ranking-badge badge-{{ student['current_badge']|lower }}">{{ student['current_badge'] }}</span>
+              <form method="post" class="ranking-toggle">
+                <input type="hidden" name="action" value="toggle_user">
+                <input type="hidden" name="user_id" value="{{ student['id'] }}">
+                <button type="submit" class="btn btn-sm {% if student['is_active'] %}btn-danger{% else %}btn-success{% endif %}">
+                  {% if student['is_active'] %}Suspend{% else %}Restore{% endif %}
+                </button>
+              </form>
+            </div>
+          </div>
         {% endfor %}
       </div>
     {% else %}<p class="admin-muted">Student rankings will appear after students register.</p>{% endif %}
   </section>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const showcase = document.querySelector('.hero-showcase');
+  if (!showcase) return;
+  const track = showcase.querySelector('.hero-showcase-track');
+  const prev = showcase.querySelector('.hero-showcase-prev');
+  const next = showcase.querySelector('.hero-showcase-next');
+  const total = 4;
+  if (!track || !prev || !next || !total) return;
+  const slides = track.querySelectorAll('.hero-showcase-slide');
+  const startPos = parseInt(track.dataset.start || '1', 10);
+  let pos = startPos;
+  let isJumping = false;
+  function realIndex(p) { return ((p - 1) % total + total) % total; }
+  function slideWidth() {
+    return parseFloat(getComputedStyle(showcase).getPropertyValue('--slide-width')) || 55;
+  }
+  function setTransform(p, animate) {
+    const w = slideWidth();
+    track.style.transition = animate ? 'transform .45s cubic-bezier(.4,.15,.2,1)' : 'none';
+    track.style.transform = 'translateX(' + ((100 - w) / 2 - p * w) + '%)';
+  }
+  function updateDots(p) {
+    const real = realIndex(p);
+    slides.forEach(function(s, i) { s.classList.toggle('active', i === p); });
+    showcase.setAttribute('data-active', real);
+  }
+  function goTo(p) {
+    if (isJumping) return;
+    pos = p;
+    setTransform(pos, true);
+    updateDots(pos);
+    if (pos === 0 || pos === total + 1) {
+      isJumping = true;
+      setTimeout(function() {
+        pos = pos === 0 ? total : 1;
+        setTransform(pos, false);
+        updateDots(pos);
+        isJumping = false;
+      }, 460);
+    }
+  }
+  prev.addEventListener('click', function() { goTo(pos - 1); });
+  next.addEventListener('click', function() { goTo(pos + 1); });
+  setTransform(startPos, false);
+  updateDots(startPos);
+  let autoTimer = null;
+  let isPaused = false;
+  function startAuto() {
+    if (autoTimer) clearTimeout(autoTimer);
+    autoTimer = setTimeout(function() { if (!isPaused && !isJumping) { goTo(pos + 1); startAuto(); } }, 5000);
+  }
+  function stopAuto() {
+    if (autoTimer) clearTimeout(autoTimer);
+    autoTimer = null;
+  }
+  showcase.addEventListener('mouseenter', function() { isPaused = true; stopAuto(); });
+  showcase.addEventListener('mouseleave', function() { isPaused = false; startAuto(); });
+  showcase.addEventListener('touchstart', function() { isPaused = true; stopAuto(); }, { passive: true });
+  showcase.addEventListener('touchend', function() { isPaused = false; startAuto(); });
+  startAuto();
+})();
+</script>
 {% endblock %}

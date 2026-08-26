@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "hero_avatar.html" import render_hero_avatar %}
 {% block title %}Dashboard — Cyber-S.A.F.E.{% endblock %}
 
 {% block content %}
@@ -29,14 +30,7 @@
       {% endif %}
       <div class="hero-avatar-aura pulse-glow rank-{{ rank_info.current_badge|lower }}"></div>
       <div class="hero-avatar rank-{{ rank_info.current_badge|lower }}" aria-hidden="true">
-        <span class="robot-antenna"></span>
-        <span class="robot-head"><span class="avatar-visor"></span><span class="avatar-lock">+</span></span>
-        <span class="robot-neck"></span>
-        <span class="robot-arm robot-arm-left"><i></i></span>
-        <span class="robot-arm robot-arm-right"><i></i></span>
-        <span class="robot-body"><span class="robot-emblem">&#9673;</span></span>
-        <span class="robot-leg robot-leg-left"></span>
-        <span class="robot-leg robot-leg-right"></span>
+        {{ render_hero_avatar(rank_info.current_badge) }}
       </div>
     </div>
 
@@ -125,8 +119,8 @@
 </section>
 {% endblock %}
 
-{% if request.args.get('welcome') %}
 {% block scripts %}
+{% if request.args.get('welcome') %}
 <script>
 (function() {
   const bubble = document.querySelector('.hero-speech-bubble');
@@ -148,5 +142,5 @@
   bubble.appendChild(cursor);
 })();
 </script>
-{% endblock %}
 {% endif %}
+{% endblock %}

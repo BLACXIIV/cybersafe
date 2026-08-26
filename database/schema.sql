@@ -19,6 +19,7 @@ CREATE TABLE users (
     role          TEXT NOT NULL DEFAULT 'student',
     points        INTEGER NOT NULL DEFAULT 0,
     level         TEXT NOT NULL DEFAULT 'Cyber Rookie',
+    is_active     INTEGER NOT NULL DEFAULT 1,
     created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

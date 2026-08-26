@@ -91,18 +91,11 @@
   </div>
 
   <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1.5rem;">
-    {% if is_wrong %}
-      {% if has_more %}
-        <a class="btn btn-primary" href="{{ url_for('levels.play', level_number=level.level_number) }}">Next Question</a>
-      {% endif %}
-    {% else %}
+    {% if not is_wrong %}
       {% if has_voucher %}
         <a class="btn btn-primary" href="{{ url_for('levels.voucher', level_number=level.level_number, question_id=question.id) }}">View Voucher</a>
       {% else %}
         <a class="btn btn-primary" href="{{ url_for('levels.voucher', level_number=level.level_number, question_id=question.id) }}">Claim Access Voucher</a>
-      {% endif %}
-      {% if has_more %}
-        <a class="btn btn-outline" href="{{ url_for('levels.play', level_number=level.level_number) }}">Next Question</a>
       {% endif %}
     {% endif %}
 

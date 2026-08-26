@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 
 from auth import login_required
 from database.db import get_db
+from ranks import BADGE_TITLES, BADGE_ORDER, rank_info
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 ALLOWED_LOGO_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif"}
@@ -84,6 +85,17 @@ def dashboard():
             db.execute("DELETE FROM sections WHERE id = ?", (request.form.get("section_id", type=int),))
             db.commit()
             flash("Section removed.", "success")
+        elif action == "toggle_user":
+            user_id = request.form.get("user_id", type=int)
+            if user_id:
+                current = db.execute("SELECT is_active, role FROM users WHERE id = ?", (user_id,)).fetchone()
+                if current and current["role"] != "admin":
+                    new_state = 0 if current["is_active"] else 1
+                    db.execute("UPDATE users SET is_active = ? WHERE id = ?", (new_state, user_id))
+                    db.commit()
+                    flash("Account " + ("restored" if new_state else "suspended") + ".", "success")
+                else:
+                    flash("Cannot suspend an admin account.", "error")
         return redirect(url_for("admin.dashboard"))
 
     settings = db.execute("SELECT * FROM school_settings WHERE id = 1").fetchone()
@@ -93,8 +105,36 @@ def dashboard():
     sections = db.execute(
         "SELECT id, grade_id, name FROM sections ORDER BY grade_id, name COLLATE NOCASE"
     ).fetchall()
-    rankings = db.execute(
-        """SELECT full_name, username, grade_section, points, level
+
+    total_questions = db.execute("SELECT COUNT(*) AS c FROM questions").fetchone()["c"]
+    max_points = total_questions * 100
+    badge_filter = request.args.get("badge", "")
+
+    students = db.execute(
+        """SELECT id, full_name, username, grade_section, points, level, is_active
            FROM users WHERE role = 'student' ORDER BY points DESC, full_name COLLATE NOCASE ASC"""
     ).fetchall()
-    return render_template("admin.html", settings=settings, grades=grades, sections=sections, rankings=rankings)
+
+    rankings = []
+    for s in students:
+        current_badge, current_title, _, _, _, _ = rank_info(s["points"], max_points)
+        row = dict(s)
+        row["current_badge"] = current_badge
+        row["current_title"] = current_title
+        rankings.append(row)
+
+    # Sort: highest badge first, then highest score.
+    rankings.sort(key=lambda r: (-BADGE_ORDER[r["current_badge"]], -r["points"]))
+
+    if badge_filter in BADGE_ORDER:
+        rankings = [r for r in rankings if r["current_badge"] == badge_filter]
+
+    return render_template(
+        "admin.html",
+        settings=settings,
+        grades=grades,
+        sections=sections,
+        rankings=rankings,
+        badges=BADGE_TITLES,
+        badge_filter=badge_filter,
+    )

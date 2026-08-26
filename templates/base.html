@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Cyber-S.A.F.E.{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/hero.css') }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <div class="page-wrap">
@@ -32,30 +33,35 @@
             <a class="btn btn-outline nav-btn" href="{{ url_for('levels.index') }}">Missions</a>
             {% if g.user['role'] == 'admin' %}<a class="btn btn-outline nav-btn" href="{{ url_for('admin.dashboard') }}">Admin</a>{% endif %}
             <a class="btn btn-primary nav-btn" href="#" id="logout-trigger">Log Out</a>
-          {% else %}
-            <a class="btn btn-outline" href="{{ url_for('auth.login') }}">Log In</a>
-            <a class="btn btn-primary" href="{{ url_for('auth.signup') }}">Sign Up</a>
           {% endif %}
         </div>
       </div>
     </nav>
 
     <main class="container" style="flex:1; width:100%; padding-top:1rem; padding-bottom:1rem;">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          {% for category, message in messages %}
-            <div class="flash flash-{{ category }}">{{ message }}</div>
-          {% endfor %}
-        {% endif %}
-      {% endwith %}
-
       {% block content %}{% endblock %}
     </main>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <script type="application/json" id="flashes-data">{{ messages | tojson }}</script>
+      {% endif %}
+    {% endwith %}
 
     <footer class="site-footer">
       &copy; {{ 2026 }} Cyber-S.A.F.E. &mdash; Cybersecurity Awareness &amp; Education System
     </footer>
   </div>
+  <div id="flash-modal" class="modal-overlay" style="display:none;" aria-hidden="true">
+    <div id="flash-box" class="modal-box" role="alertdialog" aria-modal="true" aria-labelledby="flash-title">
+      <h2 id="flash-title" style="margin:0 0 0.5rem; font-size:1rem;">Notice</h2>
+      <p id="flash-message" style="margin:0 0 1rem; color:var(--text-secondary); font-size:0.9rem;"></p>
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+        <button class="btn btn-primary" id="flash-close">OK</button>
+      </div>
+    </div>
+  </div>
+
   <div id="logout-modal" class="modal-overlay" style="display:none;" aria-hidden="true">
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="logout-title">
       <h2 id="logout-title" style="margin:0 0 0.5rem; font-size:1rem;">Log Out?</h2>
@@ -68,6 +74,50 @@
   </div>
 
   {% block scripts %}{% endblock %}
+  <script>
+  (function() {
+    const dataEl = document.getElementById('flashes-data');
+    let flashes = [];
+    if (dataEl) {
+      try { flashes = JSON.parse(dataEl.textContent); } catch (e) {}
+    }
+    if (flashes.length) {
+      const modal = document.getElementById('flash-modal');
+      const box = document.getElementById('flash-box');
+      const title = document.getElementById('flash-title');
+      const message = document.getElementById('flash-message');
+      const close = document.getElementById('flash-close');
+      let index = 0;
+      const titles = { error: 'Error', success: 'Success', info: 'Notice', warning: 'Warning' };
+      function show() {
+        const [category, msg] = flashes[index];
+        box.className = 'modal-box modal-box-' + category;
+        title.textContent = titles[category] || 'Notice';
+        title.style.color = category === 'error' ? 'var(--accent-red, #ef4444)' : category === 'success' ? 'var(--accent-green)' : 'var(--accent-cyan)';
+        message.textContent = msg;
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+      }
+      close.addEventListener('click', function() {
+        index++;
+        if (index < flashes.length) {
+          show();
+        } else {
+          modal.style.display = 'none';
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      });
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          modal.style.display = 'none';
+          modal.setAttribute('aria-hidden', 'true');
+          index = flashes.length;
+        }
+      });
+      show();
+    }
+  })();
+  </script>
   <script>
   (function() {
     const trigger = document.getElementById('logout-trigger');
