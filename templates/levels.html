@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Missions — Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <h1>Cyber-S.A.F.E. Missions</h1>
+  <p>Complete each level in order. Each question is answered once — make it count.</p>
+</div>
+
+<div class="mission-list">
+  {% for item in level_summaries %}
+    {% set lvl = item.level %}
+    <div class="mission-item {% if not item.unlocked %}mission-locked{% endif %}" style="flex-direction:column; align-items:stretch; gap:0.5rem;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="name">
+          {% if item.status == 'completed' %}✅{% elif not item.unlocked %}🔒{% else %}▶️{% endif %}
+          Level {{ lvl.level_number }} — {{ lvl.name }}
+        </span>
+        {% if item.unlocked %}
+          <a class="btn btn-primary" href="{{ url_for('levels.play', level_number=lvl.level_number) }}">
+            {% if item.status == 'completed' %}Review{% elif item.answered > 0 %}Continue{% else %}Start{% endif %}
+          </a>
+        {% else %}
+          <span class="btn btn-outline" style="opacity:0.6;">Locked</span>
+        {% endif %}
+      </div>
+      <p style="margin:0; color:var(--text-secondary); font-size:0.85rem;">{{ lvl.focus }}</p>
+      <div class="progress-bar">
+        <div class="progress-bar-fill" style="width: {{ ((item.answered / item.total_questions) * 100) if item.total_questions else 0 }}%;"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-secondary);">
+        <span>{{ item.answered }} / {{ item.total_questions }} answered</span>
+        <span>{{ item.total_points }} / {{ item.max_points }} pts</span>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

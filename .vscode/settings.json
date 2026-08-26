@@ -1,0 +1,12 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^python -c \"from app import app; client = app\\.test_client\\(\\);\nwith client\\.session_transaction\\(\\) as session: session\\['user_id'\\] = 999999\nresponse = client\\.get\\('/dashboard'\\); print\\(response\\.status_code, response\\.headers\\.get\\('Location'\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^python -c \"from app import app; from flask import render_template; app\\.config\\['TESTING'\\] = True; \nwith app\\.test_request_context\\('/dashboard'\\): print\\(len\\(render_template\\('dashboard\\.html', user=\\{'full_name':'Alex Johnson','grade_section':'7A','level':'Cyber Guardian','points':350\\}, level_summaries=\\[\\], overall_pct=70\\)\\)\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

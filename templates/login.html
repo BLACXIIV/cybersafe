@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Log In — Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card glow-ring fade-up">
+    <div class="auth-icon">🛡️</div>
+    <h1>Welcome Back</h1>
+    <p class="auth-subtitle">Log in to continue your cybersecurity missions.</p>
+
+    <form method="post" action="{{ url_for('auth.login') }}" novalidate>
+      <div class="form-group">
+        <label for="identifier">Username or Email</label>
+        <input type="text" id="identifier" name="identifier" placeholder="jdelacruz or you@school.edu"
+               value="{{ request.form.get('identifier', '') }}" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" placeholder="Your password" required>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">Log In</button>
+    </form>
+
+    <p class="auth-switch">
+      Don't have an account? <a href="{{ url_for('auth.signup') }}">Sign up</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,325 @@
+{
+  "levels": [
+    {
+      "level_number": 1,
+      "name": "Beginner Cyber Guardian",
+      "focus": "Basic Cybersecurity Awareness",
+      "questions": [
+        {
+          "question_number": 1,
+          "prompt": "You are creating a password for your school account. Which is the safest choice?",
+          "choices": [
+            {"letter": "A", "text": "12345678", "points": 0},
+            {"letter": "B", "text": "john2026", "points": 25},
+            {"letter": "C", "text": "JohnCruz123", "points": 50},
+            {"letter": "D", "text": "A unique password with letters, numbers, and symbols that only you know", "points": 100}
+          ]
+        },
+        {
+          "question_number": 2,
+          "prompt": "Your friend asks for your account password because they want to help submit your assignment. What should you do?",
+          "choices": [
+            {"letter": "A", "text": "Give the password because it is your friend", "points": 0},
+            {"letter": "B", "text": "Share it temporarily and change it later", "points": 25},
+            {"letter": "C", "text": "Tell your friend your username only", "points": 50},
+            {"letter": "D", "text": "Keep your password private and ask your teacher for assistance if needed", "points": 100}
+          ]
+        },
+        {
+          "question_number": 3,
+          "prompt": "Why should students create strong passwords?",
+          "choices": [
+            {"letter": "A", "text": "To make logging in slower", "points": 0},
+            {"letter": "B", "text": "To make accounts harder for others to access", "points": 100},
+            {"letter": "C", "text": "To make accounts look professional", "points": 25},
+            {"letter": "D", "text": "To allow friends to remember their password easily", "points": 50}
+          ]
+        },
+        {
+          "question_number": 4,
+          "prompt": "You receive a message asking you to click a link to claim a free online reward. What should you do?",
+          "choices": [
+            {"letter": "A", "text": "Click immediately", "points": 0},
+            {"letter": "B", "text": "Share the link with classmates first", "points": 25},
+            {"letter": "C", "text": "Check the sender before opening the link", "points": 100},
+            {"letter": "D", "text": "Reply asking for the reward details", "points": 50}
+          ]
+        },
+        {
+          "question_number": 5,
+          "prompt": "What information should you avoid sharing publicly online?",
+          "choices": [
+            {"letter": "A", "text": "Favorite color", "points": 50},
+            {"letter": "B", "text": "Favorite subject", "points": 50},
+            {"letter": "C", "text": "Home address and passwords", "points": 100},
+            {"letter": "D", "text": "School activity interests", "points": 25}
+          ]
+        },
+        {
+          "question_number": 6,
+          "prompt": "Which action shows responsible internet use?",
+          "choices": [
+            {"letter": "A", "text": "Posting private information online", "points": 0},
+            {"letter": "B", "text": "Respecting others and thinking before posting", "points": 100},
+            {"letter": "C", "text": "Sharing every viral post", "points": 25},
+            {"letter": "D", "text": "Using someone else's account", "points": 0}
+          ]
+        },
+        {
+          "question_number": 7,
+          "prompt": "A website asks for your personal information before downloading a file. What should you do?",
+          "choices": [
+            {"letter": "A", "text": "Provide all information", "points": 0},
+            {"letter": "B", "text": "Provide fake information", "points": 25},
+            {"letter": "C", "text": "Check if the website is trustworthy first", "points": 100},
+            {"letter": "D", "text": "Ask classmates to provide their information", "points": 0}
+          ]
+        },
+        {
+          "question_number": 8,
+          "prompt": "What is phishing?",
+          "choices": [
+            {"letter": "A", "text": "A way to improve internet speed", "points": 25},
+            {"letter": "B", "text": "A method of stealing information through fake messages or websites", "points": 100},
+            {"letter": "C", "text": "A type of computer game", "points": 0},
+            {"letter": "D", "text": "A computer cleaning process", "points": 25}
+          ]
+        },
+        {
+          "question_number": 9,
+          "prompt": "Why should you log out from shared computers?",
+          "choices": [
+            {"letter": "A", "text": "To increase computer speed", "points": 25},
+            {"letter": "B", "text": "To prevent others from accessing your account", "points": 100},
+            {"letter": "C", "text": "To delete your files", "points": 0},
+            {"letter": "D", "text": "To install programs", "points": 0}
+          ]
+        },
+        {
+          "question_number": 10,
+          "prompt": "Before sharing online information, you should:",
+          "choices": [
+            {"letter": "A", "text": "Share immediately", "points": 0},
+            {"letter": "B", "text": "Check if the information is true", "points": 100},
+            {"letter": "C", "text": "Ask many people to share it", "points": 25},
+            {"letter": "D", "text": "Copy without reading", "points": 0}
+          ]
+        }
+      ]
+    },
+    {
+      "level_number": 2,
+      "name": "Intermediate Cyber Defender",
+      "focus": "Applying Cybersecurity Knowledge",
+      "questions": [
+        {
+          "question_number": 1,
+          "prompt": "You receive an email saying \"You won a free phone. Click this link now.\" What is the best action?",
+          "choices": [
+            {"letter": "A", "text": "Click because it is exciting", "points": 0},
+            {"letter": "B", "text": "Forward it to friends", "points": 25},
+            {"letter": "C", "text": "Verify the sender and avoid suspicious links", "points": 100},
+            {"letter": "D", "text": "Reply with your personal information", "points": 0}
+          ]
+        },
+        {
+          "question_number": 2,
+          "prompt": "Your classmate uses your account without permission. What security principle was violated?",
+          "choices": [
+            {"letter": "A", "text": "Internet speed", "points": 25},
+            {"letter": "B", "text": "Privacy and account security", "points": 100},
+            {"letter": "C", "text": "Computer design", "points": 0},
+            {"letter": "D", "text": "Online entertainment", "points": 25}
+          ]
+        },
+        {
+          "question_number": 3,
+          "prompt": "You connect to free public Wi-Fi. What should you do?",
+          "choices": [
+            {"letter": "A", "text": "Access banking accounts immediately", "points": 0},
+            {"letter": "B", "text": "Share your password with others", "points": 0},
+            {"letter": "C", "text": "Avoid sensitive activities and use secure connections", "points": 100},
+            {"letter": "D", "text": "Turn off all security settings", "points": 0}
+          ]
+        },
+        {
+          "question_number": 4,
+          "prompt": "Your antivirus software shows a warning. What should you do?",
+          "choices": [
+            {"letter": "A", "text": "Ignore it", "points": 0},
+            {"letter": "B", "text": "Disable antivirus protection", "points": 0},
+            {"letter": "C", "text": "Investigate and follow security recommendations", "points": 100},
+            {"letter": "D", "text": "Delete random files", "points": 25}
+          ]
+        },
+        {
+          "question_number": 5,
+          "prompt": "Why should software updates be installed?",
+          "choices": [
+            {"letter": "A", "text": "To improve security and fix problems", "points": 100},
+            {"letter": "B", "text": "To make devices heavier", "points": 0},
+            {"letter": "C", "text": "To remove all applications", "points": 25},
+            {"letter": "D", "text": "To slow down computers", "points": 0}
+          ]
+        },
+        {
+          "question_number": 6,
+          "prompt": "Someone posts a harmful comment about a classmate online. What should you do?",
+          "choices": [
+            {"letter": "A", "text": "Share it", "points": 0},
+            {"letter": "B", "text": "Ignore and encourage others", "points": 25},
+            {"letter": "C", "text": "Report it and support the affected person", "points": 100},
+            {"letter": "D", "text": "Reply with another harmful comment", "points": 0}
+          ]
+        },
+        {
+          "question_number": 7,
+          "prompt": "A student creates a strong password but writes it on a public notebook. What is the problem?",
+          "choices": [
+            {"letter": "A", "text": "Password is too short", "points": 25},
+            {"letter": "B", "text": "Password privacy is compromised", "points": 100},
+            {"letter": "C", "text": "Password becomes faster", "points": 0},
+            {"letter": "D", "text": "Password becomes public information only", "points": 50}
+          ]
+        },
+        {
+          "question_number": 8,
+          "prompt": "What is the purpose of Cyber-S.A.F.E. missions?",
+          "choices": [
+            {"letter": "A", "text": "To entertain students only", "points": 25},
+            {"letter": "B", "text": "To develop cybersecurity awareness through challenges", "points": 100},
+            {"letter": "C", "text": "To collect personal passwords", "points": 0},
+            {"letter": "D", "text": "To remove internet access", "points": 0}
+          ]
+        },
+        {
+          "question_number": 9,
+          "prompt": "Why are feedback and explanations important after answering missions?",
+          "choices": [
+            {"letter": "A", "text": "They help learners understand mistakes and improve", "points": 100},
+            {"letter": "B", "text": "They only increase scores", "points": 25},
+            {"letter": "C", "text": "They replace studying", "points": 0},
+            {"letter": "D", "text": "They remove challenges", "points": 25}
+          ]
+        },
+        {
+          "question_number": 10,
+          "prompt": "Why should voucher codes for internet access not be shared?",
+          "choices": [
+            {"letter": "A", "text": "They may be misused by others", "points": 100},
+            {"letter": "B", "text": "They make internet slower", "points": 25},
+            {"letter": "C", "text": "They delete accounts", "points": 0},
+            {"letter": "D", "text": "They improve passwords", "points": 25}
+          ]
+        }
+      ]
+    },
+    {
+      "level_number": 3,
+      "name": "Advanced Cyber Champion",
+      "focus": "Critical Thinking and Cyber Decision Making",
+      "questions": [
+        {
+          "question_number": 1,
+          "prompt": "A student receives a suspicious message pretending to be from the school administrator. What is the best response?",
+          "choices": [
+            {"letter": "A", "text": "Immediately follow instructions", "points": 0},
+            {"letter": "B", "text": "Verify the message using official channels", "points": 100},
+            {"letter": "C", "text": "Share it with everyone", "points": 25},
+            {"letter": "D", "text": "Delete without reporting", "points": 50}
+          ]
+        },
+        {
+          "question_number": 2,
+          "prompt": "A cybersecurity system adjusts question difficulty based on student performance. What feature is demonstrated?",
+          "choices": [
+            {"letter": "A", "text": "File sharing", "points": 25},
+            {"letter": "B", "text": "Adaptive assessment", "points": 100},
+            {"letter": "C", "text": "Internet browsing", "points": 0},
+            {"letter": "D", "text": "Password recovery", "points": 25}
+          ]
+        },
+        {
+          "question_number": 3,
+          "prompt": "Why does Cyber-S.A.F.E. use badges and points?",
+          "choices": [
+            {"letter": "A", "text": "To encourage learning motivation and achievement", "points": 100},
+            {"letter": "B", "text": "To replace cybersecurity lessons", "points": 0},
+            {"letter": "C", "text": "To compete without learning", "points": 25},
+            {"letter": "D", "text": "To collect private information", "points": 0}
+          ]
+        },
+        {
+          "question_number": 4,
+          "prompt": "A student completes missions and receives internet access authorization. What is the purpose?",
+          "choices": [
+            {"letter": "A", "text": "Reward responsible cybersecurity behavior", "points": 100},
+            {"letter": "B", "text": "Allow unlimited sharing of accounts", "points": 0},
+            {"letter": "C", "text": "Remove internet security", "points": 0},
+            {"letter": "D", "text": "Encourage unsafe browsing", "points": 0}
+          ]
+        },
+        {
+          "question_number": 5,
+          "prompt": "A learner discovers a suspicious website. What cybersecurity decision shows critical thinking?",
+          "choices": [
+            {"letter": "A", "text": "Explore everything on the website", "points": 0},
+            {"letter": "B", "text": "Evaluate risks before interacting", "points": 100},
+            {"letter": "C", "text": "Share it immediately", "points": 25},
+            {"letter": "D", "text": "Enter personal details", "points": 0}
+          ]
+        },
+        {
+          "question_number": 6,
+          "prompt": "Why is identity verification important in cybersecurity systems?",
+          "choices": [
+            {"letter": "A", "text": "It confirms the correct user is accessing the system", "points": 100},
+            {"letter": "B", "text": "It slows computers", "points": 25},
+            {"letter": "C", "text": "It removes accounts", "points": 0},
+            {"letter": "D", "text": "It allows anonymous access", "points": 0}
+          ]
+        },
+        {
+          "question_number": 7,
+          "prompt": "A student earns a low score in phishing detection. What should the adaptive system do?",
+          "choices": [
+            {"letter": "A", "text": "Provide easier learning support and feedback", "points": 100},
+            {"letter": "B", "text": "Block the student permanently", "points": 0},
+            {"letter": "C", "text": "Ignore the result", "points": 25},
+            {"letter": "D", "text": "Remove all missions", "points": 0}
+          ]
+        },
+        {
+          "question_number": 8,
+          "prompt": "Which behavior best represents a Cyber-S.A.F.E. Champion?",
+          "choices": [
+            {"letter": "A", "text": "Sharing passwords with friends", "points": 0},
+            {"letter": "B", "text": "Making informed and responsible online decisions", "points": 100},
+            {"letter": "C", "text": "Clicking every online offer", "points": 0},
+            {"letter": "D", "text": "Ignoring cybersecurity rules", "points": 25}
+          ]
+        },
+        {
+          "question_number": 9,
+          "prompt": "Why should students analyze online information before sharing?",
+          "choices": [
+            {"letter": "A", "text": "To prevent misinformation and harmful effects", "points": 100},
+            {"letter": "B", "text": "To increase the number of posts", "points": 25},
+            {"letter": "C", "text": "To become popular online", "points": 25},
+            {"letter": "D", "text": "To avoid learning", "points": 0}
+          ]
+        },
+        {
+          "question_number": 10,
+          "prompt": "The main goal of Cyber-S.A.F.E. is to:",
+          "choices": [
+            {"letter": "A", "text": "Provide games only", "points": 25},
+            {"letter": "B", "text": "Develop cybersecurity awareness through adaptive learning and responsible access", "points": 100},
+            {"letter": "C", "text": "Monitor students' private activities", "points": 0},
+            {"letter": "D", "text": "Replace classroom learning completely", "points": 25}
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Sign Up — Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card glow-ring fade-up">
+    <div class="auth-icon">🔐</div>
+    <h1>Create Your Account</h1>
+    <p class="auth-subtitle">Join Cyber-S.A.F.E. and start your first mission.</p>
+
+    <form method="post" action="{{ url_for('auth.signup') }}" novalidate>
+      <div class="form-group">
+        <label for="full_name">Full Name</label>
+        <input type="text" id="full_name" name="full_name" placeholder="Juan Dela Cruz"
+               value="{{ request.form.get('full_name', '') }}" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" placeholder="jdelacruz"
+                 value="{{ request.form.get('username', '') }}" required>
+        </div>
+        <div class="form-group">
+          <label for="grade_id">Grade</label>
+          <select id="grade_id" name="grade_id" required>
+            <option value="">Select grade</option>
+            {% for grade in grades %}
+              <option value="{{ grade['id'] }}" {% if request.form.get('grade_id', type=int) == grade['id'] %}selected{% endif %}>{{ grade['name'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="section_id">Section</label>
+          <select id="section_id" name="section_id" required disabled>
+            <option value="">Select section</option>
+            {% for section in sections %}
+              <option value="{{ section['id'] }}" data-grade-id="{{ section['grade_id'] }}" {% if request.form.get('section_id', type=int) == section['id'] %}selected{% endif %}>{{ section['name'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="you@school.edu"
+               value="{{ request.form.get('email', '') }}" required>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" placeholder="At least 8 characters" required>
+        </div>
+        <div class="form-group">
+          <label for="confirm_password">Confirm Password</label>
+          <input type="password" id="confirm_password" name="confirm_password" placeholder="Repeat password" required>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
+    </form>
+
+    <p class="auth-switch">
+      Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const gradeSelect = document.getElementById('grade_id');
+  const sectionSelect = document.getElementById('section_id');
+  const sectionOptions = Array.from(sectionSelect.options).slice(1);
+
+  function updateSections() {
+    const selectedGrade = gradeSelect.value;
+    sectionSelect.disabled = !selectedGrade;
+    sectionOptions.forEach((option) => {
+      option.hidden = option.dataset.gradeId !== selectedGrade;
+    });
+    if (!selectedGrade || sectionSelect.selectedOptions[0]?.hidden) {
+      sectionSelect.value = '';
+    }
+  }
+
+  gradeSelect.addEventListener('change', updateSections);
+  updateSections();
+</script>
+{% endblock %}

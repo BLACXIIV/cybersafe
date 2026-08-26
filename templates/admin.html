@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard - Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<section class="admin-shell">
+  <header class="admin-heading">
+    <div>
+      <p class="eyebrow">Control center</p>
+      <h1>School Administration</h1>
+      <p>Manage your school identity, student groups, and rankings.</p>
+    </div>
+    <span class="admin-badge">Administrator</span>
+  </header>
+
+  <div class="admin-grid">
+    <section class="admin-panel">
+      <div class="admin-panel-heading"><h2>School branding</h2><span>Identity</span></div>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="branding">
+        <label class="admin-label" for="school_name">School name</label>
+        <input class="admin-input" id="school_name" name="school_name" value="{{ settings['school_name'] }}" required>
+        <label class="admin-label" for="school_logo">School logo</label>
+        <input class="admin-input admin-file" id="school_logo" name="school_logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+        {% if settings['logo_path'] %}<img class="school-logo-preview" src="{{ url_for('static', filename=settings['logo_path']) }}" alt="School logo">{% endif %}
+        <button class="btn btn-primary" type="submit">Save branding</button>
+      </form>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-heading"><h2>Grades and sections</h2><span>{{ grades|length }} grades</span></div>
+      <form class="grade-form" method="post">
+        <input type="hidden" name="action" value="add_grade">
+        <input class="admin-input" name="grade_name" placeholder="e.g. Grade 10" required>
+        <button class="btn btn-primary" type="submit">Add</button>
+      </form>
+      <div class="grade-list">
+        {% for grade in grades %}
+          <div class="grade-row">
+            <div class="grade-details">
+              <div class="grade-row-heading"><strong>{{ grade['name'] }}</strong><form method="post"><input type="hidden" name="action" value="delete_grade"><input type="hidden" name="grade_id" value="{{ grade['id'] }}"><button class="text-button" type="submit">Remove grade</button></form></div>
+              <div class="section-list">
+                {% for section in sections if section['grade_id'] == grade['id'] %}
+                  <div class="section-row"><span>{{ section['name'] }}</span><form method="post"><input type="hidden" name="action" value="delete_section"><input type="hidden" name="section_id" value="{{ section['id'] }}"><button class="text-button" type="submit">Remove</button></form></div>
+                {% else %}<p class="admin-muted">No sections added yet.</p>{% endfor %}
+              </div>
+              <form class="section-form" method="post">
+                <input type="hidden" name="action" value="add_section">
+                <input type="hidden" name="grade_id" value="{{ grade['id'] }}">
+                <input class="admin-input" name="section_name" placeholder="e.g. Section A" required>
+                <button class="btn btn-outline" type="submit">Add section</button>
+              </form>
+            </div>
+          </div>
+        {% else %}<p class="admin-muted">No grade / sections added yet.</p>{% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <section class="admin-panel ranking-panel">
+    <div class="admin-panel-heading"><h2>Student rankings</h2><span>Points leaderboard</span></div>
+    {% if rankings %}
+      <div class="ranking-list">
+        {% for student in rankings %}
+          <div class="ranking-row"><strong class="ranking-position">{{ loop.index }}</strong><div class="ranking-name"><strong>{{ student['full_name'] }}</strong><small>{{ student['grade_section'] or 'No section' }} · {{ student['level'] }}</small></div><strong class="ranking-points">{{ student['points'] }} <small>pts</small></strong></div>
+        {% endfor %}
+      </div>
+    {% else %}<p class="admin-muted">Student rankings will appear after students register.</p>{% endif %}
+  </section>
+</section>
+{% endblock %}

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<section class="dashboard-shell">
+  <header class="dashboard-header fade-up">
+    <div class="dashboard-avatar" aria-hidden="true">
+      {{ (user['full_name'] or 'Cyber Guardian').split()[0][0] }}{{ (user['full_name'] or 'Cyber Guardian').split()[-1][0] }}
+    </div>
+    <div>
+      <p class="eyebrow">Welcome back,</p>
+      <h1>{{ user['full_name'] }}</h1>
+      <p>{{ user['grade_section'] or 'Cyber Guardian' }}</p>
+    </div>
+  </header>
+
+  <section class="dashboard-hero fade-up fade-up-1">
+    <div class="hero-circuit" aria-hidden="true">
+      <span class="circuit-line circuit-line-one"></span>
+      <span class="circuit-line circuit-line-two"></span>
+      <span class="circuit-line circuit-line-three"></span>
+      <span class="circuit-node circuit-node-one"></span>
+      <span class="circuit-node circuit-node-two"></span>
+      <span class="circuit-node circuit-node-three"></span>
+    </div>
+
+    <div class="hero-avatar-wrap float">
+      <div class="hero-avatar-aura pulse-glow"></div>
+      <div class="hero-avatar" aria-hidden="true">
+        <span class="robot-antenna"></span>
+        <span class="robot-head"><span class="avatar-visor"></span><span class="avatar-lock">+</span></span>
+        <span class="robot-neck"></span>
+        <span class="robot-arm robot-arm-left"><i></i></span>
+        <span class="robot-arm robot-arm-right"><i></i></span>
+        <span class="robot-body"><span class="robot-emblem">&#9673;</span></span>
+        <span class="robot-leg robot-leg-left"></span>
+        <span class="robot-leg robot-leg-right"></span>
+      </div>
+    </div>
+
+    <div class="dashboard-hero-body">
+      <div class="hero-level-row">
+        <strong>Level: {{ user['level'] }}</strong>
+        <span>{{ user['points'] }} / {{ [user['points'] + 500, 500]|max }} XP</span>
+      </div>
+      <div class="xp-track" aria-label="Overall progress: {{ overall_pct }} percent">
+        <div class="xp-fill" style="width: {{ overall_pct }}%;"></div>
+      </div>
+
+      <div class="hero-stat-grid">
+        <div class="hero-stat"><strong>{{ user['points'] }}</strong><span>Points</span></div>
+        <div class="hero-stat"><strong>{{ level_summaries|length }}</strong><span>Missions</span></div>
+        <div class="hero-stat"><strong>{{ overall_pct }}%</strong><span>Progress</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="access-status fade-up fade-up-2">
+    <div class="access-icon" aria-hidden="true">&#9673;</div>
+    <div>
+      <strong>Internet Access {{ 'Active' if overall_pct >= 100 else 'Locked' }}</strong>
+      <span>{{ 'Your learning clearance is active.' if overall_pct >= 100 else 'Complete your missions to unlock access.' }}</span>
+    </div>
+    <span class="access-dot" aria-hidden="true"></span>
+  </section>
+
+  <section class="dashboard-section fade-up fade-up-3">
+    <div class="section-heading">
+      <h2>Missions</h2>
+      <a href="{{ url_for('levels.index') }}">View All</a>
+    </div>
+    <div class="mission-list">
+      {% for item in level_summaries %}
+        <a class="mission-item mission-{{ item.status }}" href="{{ url_for('levels.play', level_number=item.level.level_number) }}">
+          <span class="mission-icon" aria-hidden="true">
+            {% if item.status == 'completed' %}&#10003;{% elif item.status == 'in_progress' %}&#9654;{% else %}&#128274;{% endif %}
+          </span>
+          <span class="mission-copy">
+            <strong>{{ item.level.name }}</strong>
+            <small>{{ 'Completed' if item.status == 'completed' else ('In Progress' if item.status == 'in_progress' else 'Locked') }}</small>
+          </span>
+          <span class="mission-arrow" aria-hidden="true">&#8250;</span>
+        </a>
+      {% else %}
+        <p class="empty-state">No missions are available yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+</section>
+{% endblock %}

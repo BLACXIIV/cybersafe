@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Cyber-S.A.F.E. — Learn Cybersecurity, Earn Access{% endblock %}
+
+{% block content %}
+<div class="landing-stage">
+  <div class="circuit-background circuit-bg" aria-hidden="true">
+    
+  </div>
+
+  <section class="hero fade-up">
+    <div class="hero-shield-wrap">
+      <div class="hero-aura pulse-glow"></div>
+      <svg width="150" height="165" viewBox="0 0 220 242" fill="none" xmlns="http://www.w3.org/2000/svg" class="float">
+      <defs>
+        <radialGradient id="sgBg" cx="50%" cy="45%" r="52%">
+          <stop offset="0%" stop-color="#22D3EE" stop-opacity=".18" />
+          <stop offset="60%" stop-color="#2F6FED" stop-opacity=".06" />
+          <stop offset="100%" stop-color="#22D3EE" stop-opacity="0" />
+        </radialGradient>
+        <linearGradient id="sgStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#22D3EE" />
+          <stop offset="100%" stop-color="#2F6FED" />
+        </linearGradient>
+        <linearGradient id="sgFill" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#22D3EE" stop-opacity=".09" />
+          <stop offset="100%" stop-color="#2F6FED" stop-opacity=".05" />
+        </linearGradient>
+        <filter id="sgGlow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="4" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <ellipse cx="110" cy="120" rx="95" ry="90" fill="url(#sgBg)" />
+      <path
+        d="M110 14 L196 48 L196 116 C196 166 158 200 110 220 C62 200 24 166 24 116 L24 48 Z"
+        fill="url(#sgFill)" stroke="url(#sgStroke)" stroke-width="1.6" filter="url(#sgGlow)" />
+      <path d="M97 105 L97 93 Q110 80 123 93 L123 105"
+        stroke="url(#sgStroke)" stroke-width="2.2" stroke-linecap="round" fill="none" filter="url(#sgGlow)" />
+      <rect x="89" y="104" width="42" height="33" rx="6"
+        fill="#0B1020" fill-opacity=".9" stroke="url(#sgStroke)" stroke-width="1.6" filter="url(#sgGlow)" />
+      <circle cx="110" cy="116" r="5" fill="url(#sgStroke)" fill-opacity=".9"/>
+      <rect x="108" y="118" width="4" height="9" rx="1.5" fill="url(#sgStroke)" fill-opacity=".9"/>
+      </svg>
+    </div>
+
+    <h1>Learn Cybersecurity.<br><span class="grad-text">Earn Your Internet Access.</span></h1>
+    <p>
+      Cyber-S.A.F.E. is a gamified cybersecurity learning system.
+      Complete short adaptive missions, demonstrate mastery, and unlock
+      authorized Internet access on the school network.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="{{ url_for('auth.signup') }}">Get Started</a>
+      <a class="btn btn-outline" href="{{ url_for('auth.login') }}">I Already Have an Account</a>
+    </div>
+  </section>
+
+  <section class="feature-grid">
+  <div class="feature-card fade-up fade-up-1">
+    <div class="icon-badge">🎯</div>
+    <div>
+      <h3>Adaptive Missions</h3>
+      <p>Questions adjust to your performance, so every student gets a path that fits them.</p>
+    </div>
+  </div>
+  <div class="feature-card fade-up fade-up-2">
+    <div class="icon-badge">🏆</div>
+    <div>
+      <h3>Points &amp; Badges</h3>
+      <p>Earn points, unlock badges, and level up as you master each cybersecurity topic.</p>
+    </div>
+  </div>
+  <div class="feature-card fade-up fade-up-3">
+    <div class="icon-badge">🌐</div>
+    <div>
+      <h3>Network Access</h3>
+      <p>Pass your missions to receive authorized, time-limited Internet access.</p>
+    </div>
+  </div>
+  </section>
+</div>
+{% endblock %}

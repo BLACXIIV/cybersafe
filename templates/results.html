@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Level {{ level.level_number }} Results — Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <h1>Level {{ level.level_number }} Complete ✅</h1>
+  <p>{{ level.name }}</p>
+</div>
+
+<div class="stat-grid" style="grid-template-columns: repeat(2, 1fr);">
+  <div class="stat-card">
+    <div class="value">{{ total_points }} / {{ max_points }}</div>
+    <div class="label">Points Earned</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ percentage }}%</div>
+    <div class="label">Score</div>
+  </div>
+</div>
+
+<h2 style="font-size:1.05rem; margin-bottom:0.75rem;">Answer Review</h2>
+<div class="mission-list" style="margin-bottom:1.5rem;">
+  {% for row in rows %}
+    <div class="mission-item" style="flex-direction:column; align-items:stretch; gap:0.35rem;">
+      <div class="name" style="font-weight:600;">Q{{ row.question_number }}. {{ row.prompt }}</div>
+      <div style="font-size:0.85rem; color: {{ 'var(--accent-green)' if row.points == 100 else 'var(--text-secondary)' }};">
+        Your answer: {{ row.chosen_letter }}. {{ row.chosen_text }} ({{ row.points }} pts)
+      </div>
+      {% if row.points < 100 %}
+        <div style="font-size:0.85rem; color: var(--accent-blue-light);">
+          Best answer: {{ row.best_letter }}. {{ row.best_text }}
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+<div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+  <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Back to Missions</a>
+  {% if next_level %}
+    <a class="btn btn-primary" href="{{ url_for('levels.play', level_number=next_level.level_number) }}">
+      Start Level {{ next_level.level_number }}
+    </a>
+  {% endif %}
+</div>
+{% endblock %}

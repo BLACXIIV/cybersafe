@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- This viewport tag is what makes the site responsive on phones/tablets -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Cyber-S.A.F.E.{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="page-wrap">
+    <nav class="navbar">
+      <div class="navbar-inner">
+        <a class="brand" href="{{ url_for('main.landing') }}">
+          {% if school_settings and school_settings['logo_path'] %}
+            <img class="brand-logo" src="{{ url_for('static', filename=school_settings['logo_path']) }}" alt="">
+          {% else %}
+            <span class="brand-icon">S</span>
+          {% endif %}
+          {{ school_settings['school_name'] if school_settings else 'Cyber-S.A.F.E.' }}
+        </a>
+        <div class="nav-links">
+          {% if g.user %}
+            <a class="btn btn-outline" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+            <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Missions</a>
+            {% if g.user['role'] == 'admin' %}<a class="btn btn-outline" href="{{ url_for('admin.dashboard') }}">Admin</a>{% endif %}
+            <a class="btn btn-primary" href="{{ url_for('auth.logout') }}">Log Out</a>
+          {% else %}
+            <a class="btn btn-outline" href="{{ url_for('auth.login') }}">Log In</a>
+            <a class="btn btn-primary" href="{{ url_for('auth.signup') }}">Sign Up</a>
+          {% endif %}
+        </div>
+      </div>
+    </nav>
+
+    <main class="container" style="flex:1; width:100%; padding-top:1rem; padding-bottom:1rem;">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      &copy; {{ 2026 }} Cyber-S.A.F.E. &mdash; Cybersecurity Awareness &amp; Education System
+    </footer>
+  </div>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

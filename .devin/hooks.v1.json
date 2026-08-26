@@ -1,0 +1,25 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": ".venv\\Scripts\\python -c \"import os; f='.devin/.loop_turns'; os.remove(f) if os.path.exists(f) else None\""
+        }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": ".venv\\Scripts\\python .devin\\gate.py",
+          "timeout": 60
+        }
+      ]
+    }
+  ]
+}
