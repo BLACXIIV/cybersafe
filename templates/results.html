@@ -3,7 +3,7 @@
 
 {% block content %}
 <div class="dashboard-header">
-  <h1>Level {{ level.level_number }} Complete ✅</h1>
+  <h1 style="display:flex; align-items:center; gap:0.5rem;">Level {{ level.level_number }} Complete <span style="color:var(--accent-green);">{{ lucide('circle-check', size=28) }}</span></h1>
   <p>{{ level.name }}</p>
 </div>
 

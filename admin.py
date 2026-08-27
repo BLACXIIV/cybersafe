@@ -53,7 +53,6 @@ def dashboard():
                     (school_name, logo_path),
                 )
                 db.commit()
-                flash("School branding updated.", "success")
         elif action == "add_grade":
             name = request.form.get("grade_name", "").strip()
             if not name:
@@ -62,7 +61,6 @@ def dashboard():
                 try:
                     db.execute("INSERT INTO grades (name) VALUES (?)", (name,))
                     db.commit()
-                    flash("Grade added.", "success")
                 except sqlite3.IntegrityError:
                     flash("That grade already exists.", "error")
         elif action == "add_section":
@@ -74,17 +72,14 @@ def dashboard():
                 try:
                     db.execute("INSERT INTO sections (grade_id, name) VALUES (?, ?)", (grade_id, name))
                     db.commit()
-                    flash("Section added.", "success")
                 except sqlite3.IntegrityError:
                     flash("That section already exists for this grade.", "error")
         elif action == "delete_grade":
             db.execute("DELETE FROM grades WHERE id = ?", (request.form.get("grade_id", type=int),))
             db.commit()
-            flash("Grade removed.", "success")
         elif action == "delete_section":
             db.execute("DELETE FROM sections WHERE id = ?", (request.form.get("section_id", type=int),))
             db.commit()
-            flash("Section removed.", "success")
         elif action == "toggle_user":
             user_id = request.form.get("user_id", type=int)
             if user_id:
@@ -93,7 +88,6 @@ def dashboard():
                     new_state = 0 if current["is_active"] else 1
                     db.execute("UPDATE users SET is_active = ? WHERE id = ?", (new_state, user_id))
                     db.commit()
-                    flash("Account " + ("restored" if new_state else "suspended") + ".", "success")
                 else:
                     flash("Cannot suspend an admin account.", "error")
         return redirect(url_for("admin.dashboard"))

@@ -6,164 +6,173 @@
   'Platinum': 'champion'
 } %}
 {% set level = level_map.get(rank, 'scout') %}
+{% set uid = range(1, 1000000000) | random %}
+{% set p = level ~ '-' ~ uid %}
 {% set c = {
   'rookie': {
-    'bodyBase': '#1D2A42', 'bodyTop': '#263352',
-    'visorColor': '#4B6080', 'visorOpacity': 0.5,
-    'glowColor': '#8899BB', 'glowStrength': 0.25,
-    'hasPlating': false, 'hasShieldEmblem': false,
-    'hasCape': false, 'hasCrown': false, 'hasGold': false,
-    'hasEnergyHands': false, 'particleCount': 0
+    'accent': '#8899BB', 'bodyTop': '#263352', 'bodyBase': '#1D2A42',
+    'visorOpacity': 0.5, 'glow': 0.25,
+    'plating': false, 'shield': false, 'cape': false, 'crown': false,
+    'gold': false, 'hands': false, 'particles': 0
   },
   'scout': {
-    'bodyBase': '#162038', 'bodyTop': '#1E2E50',
-    'visorColor': '#22D3EE', 'visorOpacity': 0.55,
-    'glowColor': '#22D3EE', 'glowStrength': 0.38,
-    'hasPlating': true, 'hasShieldEmblem': false,
-    'hasCape': false, 'hasCrown': false, 'hasGold': false,
-    'hasEnergyHands': false, 'particleCount': 0
+    'accent': '#D98A4C', 'bodyTop': '#2A2013', 'bodyBase': '#1B140C',
+    'visorOpacity': 0.55, 'glow': 0.38,
+    'plating': true, 'shield': false, 'cape': false, 'crown': false,
+    'gold': false, 'hands': false, 'particles': 0
   },
   'guardian': {
-    'bodyBase': '#102035', 'bodyTop': '#183050',
-    'visorColor': '#22D3EE', 'visorOpacity': 0.75,
-    'glowColor': '#22D3EE', 'glowStrength': 0.55,
-    'hasPlating': true, 'hasShieldEmblem': true,
-    'hasCape': false, 'hasCrown': false, 'hasGold': false,
-    'hasEnergyHands': true, 'particleCount': 4
+    'accent': '#C7CFDA', 'bodyTop': '#1E2430', 'bodyBase': '#12161F',
+    'visorOpacity': 0.75, 'glow': 0.55,
+    'plating': true, 'shield': true, 'cape': false, 'crown': false,
+    'gold': false, 'hands': true, 'particles': 5
   },
   'defender': {
-    'bodyBase': '#0C1A30', 'bodyTop': '#142848',
-    'visorColor': '#22D3EE', 'visorOpacity': 0.88,
-    'glowColor': '#22D3EE', 'glowStrength': 0.72,
-    'hasPlating': true, 'hasShieldEmblem': true,
-    'hasCape': true, 'hasCrown': false, 'hasGold': false,
-    'hasEnergyHands': true, 'particleCount': 8
+    'accent': '#F0B429', 'bodyTop': '#2E260F', 'bodyBase': '#1C1608',
+    'visorOpacity': 0.88, 'glow': 0.72,
+    'plating': true, 'shield': true, 'cape': true, 'crown': false,
+    'gold': false, 'hands': true, 'particles': 9
   },
   'champion': {
-    'bodyBase': '#080F22', 'bodyTop': '#101E3C',
-    'visorColor': '#22D3EE', 'visorOpacity': 1,
-    'glowColor': '#22D3EE', 'glowStrength': 1,
-    'hasPlating': true, 'hasShieldEmblem': true,
-    'hasCape': true, 'hasCrown': true, 'hasGold': true,
-    'hasEnergyHands': true, 'particleCount': 14
+    'accent': '#8FE9FF', 'bodyTop': '#0E1A2C', 'bodyBase': '#080F1C',
+    'visorOpacity': 1, 'glow': 1,
+    'plating': true, 'shield': true, 'cape': true, 'crown': true,
+    'gold': true, 'hands': true, 'particles': 14
   }
 }[level] %}
-{% set accent_color = c.glowColor %}
+{% set a = c.accent %}
+{% set g = c.glow %}
 <svg class="hero-avatar-svg rank-{{ rank|lower }}" viewBox="0 0 220 300" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
-    <radialGradient id="aura-{{ rank }}" cx="50%" cy="42%" r="52%">
-      <stop offset="0%" stop-color="{{ c.glowColor }}" stop-opacity="{{ c.glowStrength * 0.32 }}"/>
-      <stop offset="100%" stop-color="{{ c.glowColor }}" stop-opacity="0"/>
+    <radialGradient id="aura-{{ p }}" cx="50%" cy="42%" r="52%">
+      <stop offset="0%" stop-color="{{ a }}" stop-opacity="{{ g * 0.32 }}"/>
+      <stop offset="100%" stop-color="{{ a }}" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="accent-{{ rank }}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#22D3EE"/>
-      <stop offset="100%" stop-color="#2F6FED"/>
+    <linearGradient id="accent-{{ p }}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="{{ a }}"/>
+      <stop offset="100%" stop-color="{{ a }}"/>
     </linearGradient>
-    <linearGradient id="bodyGrad-{{ rank }}" x1="0%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="body-{{ p }}" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="{{ c.bodyTop }}"/>
       <stop offset="100%" stop-color="{{ c.bodyBase }}"/>
     </linearGradient>
-    <filter id="glow-{{ rank }}" x="-60%" y="-60%" width="220%" height="220%">
+    <filter id="glow-{{ p }}" x="-60%" y="-60%" width="220%" height="220%">
       <feGaussianBlur stdDeviation="3.5" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <filter id="softGlow-{{ rank }}" x="-100%" y="-100%" width="300%" height="300%">
+    <filter id="soft-{{ p }}" x="-100%" y="-100%" width="300%" height="300%">
       <feGaussianBlur stdDeviation="6" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
 
-  <ellipse cx="110" cy="155" rx="100" ry="115" fill="url(#aura-{{ rank }})"/>
+  <ellipse cx="110" cy="155" rx="100" ry="115" fill="url(#aura-{{ p }})"/>
 
-  {% if c.hasCape %}
-    <path d="M66 130 Q40 185 46 268 Q75 284 110 288 Q145 284 174 268 Q180 185 154 130 Q132 148 110 150 Q88 148 66 130Z" fill="{{ c.bodyBase }}" fill-opacity=".9"/>
-    <path d="M66 130 Q40 185 46 268 Q75 284 110 288 Q145 284 174 268 Q180 185 154 130 Q132 148 110 150 Q88 148 66 130Z" fill="none" stroke="{{ c.glowColor }}" stroke-width=".8" stroke-opacity="{{ c.glowStrength * 0.45 }}" filter="url(#softGlow-{{ rank }})"/>
+  {% if c.particles > 0 %}
+    {% for i in range(c.particles) %}
+      {% set ang = ((i * 137.508) % 360) | round(1) %}
+      {% set r = (78 + (i * 7.3) % 40) | round(1) %}
+      {% set rad = (1 + (i % 4) * 0.5) | round(1) %}
+      {% set op = (0.3 + (i % 6) * 0.08) | round(2) %}
+      {% set dur = (2.4 + (i % 8) * 0.35) | round(2) %}
+      {% set delay = ((i * 0.17) % 2) | round(2) %}
+      <g transform="rotate({{ ang }} 110 155) translate({{ r }} 0)">
+        <circle cx="0" cy="0" r="{{ rad }}" fill="{{ a }}" fill-opacity="{{ op }}">
+          <animate attributeName="opacity" values="{{ op }};{{ (op * 0.25) | round(2) }};{{ op }}" dur="{{ dur }}s" begin="{{ delay }}s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+    {% endfor %}
   {% endif %}
 
-  <rect x="74" y="212" width="28" height="68" rx="9" fill="url(#bodyGrad-{{ rank }})" stroke="{{ c.glowColor }}" stroke-width="1" stroke-opacity="{{ c.glowStrength * 0.5 }}"/>
-  <rect x="118" y="212" width="28" height="68" rx="9" fill="url(#bodyGrad-{{ rank }})" stroke="{{ c.glowColor }}" stroke-width="1" stroke-opacity="{{ c.glowStrength * 0.5 }}"/>
+  {% if c.cape %}
+    <path d="M66 130 Q40 185 46 268 Q75 284 110 288 Q145 284 174 268 Q180 185 154 130 Q132 148 110 150 Q88 148 66 130Z" fill="{{ c.bodyBase }}" fill-opacity=".9"/>
+    <path d="M66 130 Q40 185 46 268 Q75 284 110 288 Q145 284 174 268 Q180 185 154 130 Q132 148 110 150 Q88 148 66 130Z" fill="none" stroke="{{ a }}" stroke-width=".8" stroke-opacity="{{ g * 0.45 }}" filter="url(#soft-{{ p }})"/>
+  {% endif %}
 
-  <rect x="72" y="270" width="32" height="20" rx="7" fill="{{ c.bodyBase }}" stroke="{{ c.glowColor }}" stroke-width="1" stroke-opacity="{{ c.glowStrength * 0.4 }}"/>
-  <rect x="116" y="270" width="32" height="20" rx="7" fill="{{ c.bodyBase }}" stroke="{{ c.glowColor }}" stroke-width="1" stroke-opacity="{{ c.glowStrength * 0.4 }}"/>
+  <rect x="74" y="212" width="28" height="68" rx="9" fill="url(#body-{{ p }})" stroke="{{ a }}" stroke-width="1" stroke-opacity="{{ g * 0.5 }}"/>
+  <rect x="118" y="212" width="28" height="68" rx="9" fill="url(#body-{{ p }})" stroke="{{ a }}" stroke-width="1" stroke-opacity="{{ g * 0.5 }}"/>
 
-  {% if c.hasGold %}
+  <rect x="72" y="270" width="32" height="20" rx="7" fill="{{ c.bodyBase }}" stroke="{{ a }}" stroke-width="1" stroke-opacity="{{ g * 0.4 }}"/>
+  <rect x="116" y="270" width="32" height="20" rx="7" fill="{{ c.bodyBase }}" stroke="{{ a }}" stroke-width="1" stroke-opacity="{{ g * 0.4 }}"/>
+
+  {% if c.gold %}
     <rect x="72" y="270" width="32" height="4" rx="2" fill="#F59E0B" fill-opacity=".55"/>
     <rect x="116" y="270" width="32" height="4" rx="2" fill="#F59E0B" fill-opacity=".55"/>
   {% endif %}
 
-  <rect x="66" y="122" width="88" height="96" rx="14" fill="url(#bodyGrad-{{ rank }})" stroke="{{ c.glowColor }}" stroke-width="1.4" stroke-opacity="{{ c.glowStrength * 0.7 }}" {% if c.glowStrength > 0.5 %}filter="url(#glow-{{ rank }})"{% endif %}/>
+  <rect x="66" y="122" width="88" height="96" rx="14" fill="url(#body-{{ p }})" stroke="{{ a }}" stroke-width="1.4" stroke-opacity="{{ g * 0.7 }}" {% if g > 0.5 %}filter="url(#glow-{{ p }})"{% endif %}/>
 
-  {% if c.hasPlating %}
-    <path d="M80 130 L110 126 L140 130 L136 158 L110 164 L84 158 Z" fill="{{ c.bodyBase }}" stroke="{{ c.glowColor }}" stroke-width=".8" stroke-opacity="{{ c.glowStrength * 0.5 }}"/>
-    <line x1="110" y1="126" x2="110" y2="164" stroke="{{ c.glowColor }}" stroke-width=".6" stroke-opacity="{{ c.glowStrength * 0.3 }}"/>
-    <line x1="80" y1="144" x2="140" y2="144" stroke="{{ c.glowColor }}" stroke-width=".6" stroke-opacity="{{ c.glowStrength * 0.25 }}"/>
+  {% if c.plating %}
+    <path d="M80 130 L110 126 L140 130 L136 158 L110 164 L84 158 Z" fill="{{ c.bodyBase }}" stroke="{{ a }}" stroke-width=".8" stroke-opacity="{{ g * 0.5 }}"/>
+    <line x1="110" y1="126" x2="110" y2="164" stroke="{{ a }}" stroke-width=".6" stroke-opacity="{{ g * 0.3 }}"/>
+    <line x1="80" y1="144" x2="140" y2="144" stroke="{{ a }}" stroke-width=".6" stroke-opacity="{{ g * 0.25 }}"/>
   {% endif %}
 
-  {% if c.hasShieldEmblem %}
-    <path d="M110 135 L117 139 L117 148 L110 153 L103 148 L103 139 Z" fill="none" stroke="url(#accent-{{ rank }})" stroke-width="1.8" filter="url(#glow-{{ rank }})"/>
-    <circle cx="110" cy="144" r="2.8" fill="{{ c.glowColor }}" fill-opacity=".95" filter="url(#glow-{{ rank }})"/>
+  {% if c.shield %}
+    <path d="M110 135 L117 139 L117 148 L110 153 L103 148 L103 139 Z" fill="none" stroke="url(#accent-{{ p }})" stroke-width="1.8" filter="url(#glow-{{ p }})"/>
+    <circle cx="110" cy="144" r="2.8" fill="{{ a }}" fill-opacity=".95" filter="url(#glow-{{ p }})"/>
   {% endif %}
 
-  {% if c.hasGold %}
+  {% if c.gold %}
     <line x1="66" y1="122" x2="154" y2="122" stroke="#F59E0B" stroke-width="1.5" stroke-opacity=".6"/>
     <line x1="66" y1="218" x2="154" y2="218" stroke="#F59E0B" stroke-width="1" stroke-opacity=".4"/>
   {% endif %}
 
-  {% if c.hasPlating %}
-    <path d="M50 128 Q36 124 30 138 Q28 154 42 158 Q58 162 68 146 Z" fill="url(#bodyGrad-{{ rank }})" stroke="{{ c.glowColor }}" stroke-width="1.2" stroke-opacity="{{ c.glowStrength * 0.65 }}" {% if c.glowStrength > 0.5 %}filter="url(#glow-{{ rank }})"{% endif %}/>
-    <path d="M170 128 Q184 124 190 138 Q192 154 178 158 Q162 162 152 146 Z" fill="url(#bodyGrad-{{ rank }})" stroke="{{ c.glowColor }}" stroke-width="1.2" stroke-opacity="{{ c.glowStrength * 0.65 }}" {% if c.glowStrength > 0.5 %}filter="url(#glow-{{ rank }})"{% endif %}/>
-    {% if c.hasShieldEmblem %}
-      <circle cx="36" cy="140" r="3.5" fill="{{ c.glowColor }}" fill-opacity=".75" filter="url(#glow-{{ rank }})"/>
-      <circle cx="184" cy="140" r="3.5" fill="{{ c.glowColor }}" fill-opacity=".75" filter="url(#glow-{{ rank }})"/>
+  {% if c.plating %}
+    <path d="M50 128 Q36 124 30 138 Q28 154 42 158 Q58 162 68 146 Z" fill="url(#body-{{ p }})" stroke="{{ a }}" stroke-width="1.2" stroke-opacity="{{ g * 0.65 }}" {% if g > 0.5 %}filter="url(#glow-{{ p }})"{% endif %}/>
+    <path d="M170 128 Q184 124 190 138 Q192 154 178 158 Q162 162 152 146 Z" fill="url(#body-{{ p }})" stroke="{{ a }}" stroke-width="1.2" stroke-opacity="{{ g * 0.65 }}" {% if g > 0.5 %}filter="url(#glow-{{ p }})"{% endif %}/>
+    {% if c.shield %}
+      <circle cx="36" cy="140" r="3.5" fill="{{ a }}" fill-opacity=".75" filter="url(#glow-{{ p }})"/>
+      <circle cx="184" cy="140" r="3.5" fill="{{ a }}" fill-opacity=".75" filter="url(#glow-{{ p }})"/>
     {% endif %}
   {% endif %}
 
-  <rect x="40" y="124" width="26" height="76" rx="10" fill="url(#bodyGrad-{{ rank }})" stroke="{{ c.glowColor }}" stroke-width="1.1" stroke-opacity="{{ c.glowStrength * 0.55 }}"/>
-  <rect x="154" y="124" width="26" height="76" rx="10" fill="url(#bodyGrad-{{ rank }})" stroke="{{ c.glowColor }}" stroke-width="1.1" stroke-opacity="{{ c.glowStrength * 0.55 }}"/>
+  <rect x="40" y="124" width="26" height="76" rx="10" fill="url(#body-{{ p }})" stroke="{{ a }}" stroke-width="1.1" stroke-opacity="{{ g * 0.55 }}"/>
+  <rect x="154" y="124" width="26" height="76" rx="10" fill="url(#body-{{ p }})" stroke="{{ a }}" stroke-width="1.1" stroke-opacity="{{ g * 0.55 }}"/>
 
-  {% if c.hasEnergyHands %}
-    <ellipse cx="53" cy="208" rx="11" ry="8" fill="{{ c.glowColor }}" fill-opacity=".18" filter="url(#softGlow-{{ rank }})"/>
-    <ellipse cx="53" cy="216" rx="7" ry="5" fill="{{ c.glowColor }}" fill-opacity=".1"/>
-    <ellipse cx="53" cy="222" rx="4" ry="3" fill="{{ c.glowColor }}" fill-opacity=".06"/>
-    <ellipse cx="167" cy="208" rx="11" ry="8" fill="{{ c.glowColor }}" fill-opacity=".18" filter="url(#softGlow-{{ rank }})"/>
-    <ellipse cx="167" cy="216" rx="7" ry="5" fill="{{ c.glowColor }}" fill-opacity=".1"/>
-    <ellipse cx="167" cy="222" rx="4" ry="3" fill="{{ c.glowColor }}" fill-opacity=".06"/>
+  {% if c.hands %}
+    <ellipse cx="53" cy="208" rx="11" ry="8" fill="{{ a }}" fill-opacity=".18" filter="url(#soft-{{ p }})"/>
+    <ellipse cx="53" cy="216" rx="7" ry="5" fill="{{ a }}" fill-opacity=".1"/>
+    <ellipse cx="53" cy="222" rx="4" ry="3" fill="{{ a }}" fill-opacity=".06"/>
+    <ellipse cx="167" cy="208" rx="11" ry="8" fill="{{ a }}" fill-opacity=".18" filter="url(#soft-{{ p }})"/>
+    <ellipse cx="167" cy="216" rx="7" ry="5" fill="{{ a }}" fill-opacity=".1"/>
+    <ellipse cx="167" cy="222" rx="4" ry="3" fill="{{ a }}" fill-opacity=".06"/>
   {% endif %}
 
-  <ellipse cx="53" cy="202" rx="11" ry="9" fill="{{ c.bodyBase }}" stroke="{{ c.glowColor }}" stroke-width="1" stroke-opacity="{{ c.glowStrength * 0.5 }}"/>
-  <ellipse cx="167" cy="202" rx="11" ry="9" fill="{{ c.bodyBase }}" stroke="{{ c.glowColor }}" stroke-width="1" stroke-opacity="{{ c.glowStrength * 0.5 }}"/>
+  <ellipse cx="53" cy="202" rx="11" ry="9" fill="{{ c.bodyBase }}" stroke="{{ a }}" stroke-width="1" stroke-opacity="{{ g * 0.5 }}"/>
+  <ellipse cx="167" cy="202" rx="11" ry="9" fill="{{ c.bodyBase }}" stroke="{{ a }}" stroke-width="1" stroke-opacity="{{ g * 0.5 }}"/>
 
-  <rect x="96" y="88" width="28" height="18" rx="5" fill="{{ c.bodyBase }}" stroke="{{ c.glowColor }}" stroke-width=".9" stroke-opacity="{{ c.glowStrength * 0.5 }}"/>
+  <rect x="96" y="88" width="28" height="18" rx="5" fill="{{ c.bodyBase }}" stroke="{{ a }}" stroke-width=".9" stroke-opacity="{{ g * 0.5 }}"/>
 
-  <rect x="68" y="32" width="84" height="64" rx="18" fill="url(#bodyGrad-{{ rank }})" stroke="{{ c.glowColor }}" stroke-width="1.8" stroke-opacity="{{ c.glowStrength * 0.9 }}" {% if c.glowStrength > 0.4 %}filter="url(#glow-{{ rank }})"{% endif %}/>
-  <rect x="80" y="32" width="60" height="10" rx="5" fill="{{ c.bodyBase }}" stroke="{{ c.glowColor }}" stroke-width=".8" stroke-opacity="{{ c.glowStrength * 0.5 }}"/>
+  <rect x="68" y="32" width="84" height="64" rx="18" fill="url(#body-{{ p }})" stroke="{{ a }}" stroke-width="1.8" stroke-opacity="{{ g * 0.9 }}" {% if g > 0.4 %}filter="url(#glow-{{ p }})"{% endif %}/>
+  <rect x="80" y="32" width="60" height="10" rx="5" fill="{{ c.bodyBase }}" stroke="{{ a }}" stroke-width=".8" stroke-opacity="{{ g * 0.5 }}"/>
 
-  {% if c.hasPlating %}
-    <line x1="68" y1="38" x2="76" y2="38" stroke="{{ c.glowColor }}" stroke-width=".9" stroke-opacity="{{ c.glowStrength * 0.6 }}"/>
-    <line x1="68" y1="44" x2="76" y2="44" stroke="{{ c.glowColor }}" stroke-width=".9" stroke-opacity="{{ c.glowStrength * 0.6 }}"/>
-    <line x1="68" y1="50" x2="76" y2="50" stroke="{{ c.glowColor }}" stroke-width=".9" stroke-opacity="{{ c.glowStrength * 0.6 }}"/>
-    <line x1="144" y1="38" x2="152" y2="38" stroke="{{ c.glowColor }}" stroke-width=".9" stroke-opacity="{{ c.glowStrength * 0.6 }}"/>
-    <line x1="144" y1="44" x2="152" y2="44" stroke="{{ c.glowColor }}" stroke-width=".9" stroke-opacity="{{ c.glowStrength * 0.6 }}"/>
-    <line x1="144" y1="50" x2="152" y2="50" stroke="{{ c.glowColor }}" stroke-width=".9" stroke-opacity="{{ c.glowStrength * 0.6 }}"/>
+  {% if c.plating %}
+    <line x1="68" y1="38" x2="76" y2="38" stroke="{{ a }}" stroke-width=".9" stroke-opacity="{{ g * 0.6 }}"/>
+    <line x1="68" y1="44" x2="76" y2="44" stroke="{{ a }}" stroke-width=".9" stroke-opacity="{{ g * 0.6 }}"/>
+    <line x1="68" y1="50" x2="76" y2="50" stroke="{{ a }}" stroke-width=".9" stroke-opacity="{{ g * 0.6 }}"/>
+    <line x1="144" y1="38" x2="152" y2="38" stroke="{{ a }}" stroke-width=".9" stroke-opacity="{{ g * 0.6 }}"/>
+    <line x1="144" y1="44" x2="152" y2="44" stroke="{{ a }}" stroke-width=".9" stroke-opacity="{{ g * 0.6 }}"/>
+    <line x1="144" y1="50" x2="152" y2="50" stroke="{{ a }}" stroke-width=".9" stroke-opacity="{{ g * 0.6 }}"/>
   {% endif %}
 
-  {% if c.hasGold %}
+  {% if c.gold %}
     <rect x="68" y="32" width="84" height="5" rx="2.5" fill="#F59E0B" fill-opacity=".65"/>
   {% endif %}
 
-  <rect x="76" y="52" width="68" height="22" rx="7" fill="{{ c.visorColor }}" fill-opacity="{{ c.visorOpacity }}" stroke="url(#accent-{{ rank }})" stroke-width="1.5" {% if c.glowStrength > 0.35 %}filter="url(#glow-{{ rank }})"{% endif %}/>
-  <line x1="76" y1="63" x2="144" y2="63" stroke="{{ c.glowColor }}" stroke-width=".8" stroke-opacity="{{ c.glowStrength * 0.5 }}"/>
+  <rect x="76" y="52" width="68" height="22" rx="7" fill="{{ a }}" fill-opacity="{{ c.visorOpacity }}" stroke="url(#accent-{{ p }})" stroke-width="1.5" {% if g > 0.35 %}filter="url(#glow-{{ p }})"{% endif %}/>
+  <line x1="76" y1="63" x2="144" y2="63" stroke="{{ a }}" stroke-width=".8" stroke-opacity="{{ g * 0.5 }}"/>
   <path d="M82 55 L96 55 L90 58 L78 58 Z" fill="white" fill-opacity=".07"/>
 
-  {% if c.hasCrown %}
-    <ellipse cx="110" cy="25" rx="52" ry="8" fill="none" stroke="{{ c.glowColor }}" stroke-width="1.8" stroke-opacity=".85" filter="url(#glow-{{ rank }})"/>
+  {% if c.crown %}
+    <ellipse cx="110" cy="25" rx="52" ry="8" fill="none" stroke="{{ a }}" stroke-width="1.8" stroke-opacity=".85" filter="url(#glow-{{ p }})"/>
     <ellipse cx="110" cy="25" rx="52" ry="8" fill="none" stroke="#F59E0B" stroke-width=".8" stroke-opacity=".4"/>
-    <line x1="68" y1="25" x2="68" y2="15" stroke="{{ c.glowColor }}" stroke-width="2" stroke-opacity=".8"/>
-    <line x1="84" y1="25" x2="84" y2="15" stroke="{{ c.glowColor }}" stroke-width="2" stroke-opacity=".8"/>
+    <line x1="68" y1="25" x2="68" y2="15" stroke="{{ a }}" stroke-width="2" stroke-opacity=".8"/>
+    <line x1="84" y1="25" x2="84" y2="15" stroke="{{ a }}" stroke-width="2" stroke-opacity=".8"/>
     <line x1="110" y1="25" x2="110" y2="10" stroke="#F59E0B" stroke-width="2" stroke-opacity=".8"/>
-    <line x1="136" y1="25" x2="136" y2="15" stroke="{{ c.glowColor }}" stroke-width="2" stroke-opacity=".8"/>
-    <line x1="152" y1="25" x2="152" y2="15" stroke="{{ c.glowColor }}" stroke-width="2" stroke-opacity=".8"/>
-    <circle cx="110" cy="8" r="4" fill="#F59E0B" fill-opacity=".95" filter="url(#glow-{{ rank }})"/>
+    <line x1="136" y1="25" x2="136" y2="15" stroke="{{ a }}" stroke-width="2" stroke-opacity=".8"/>
+    <line x1="152" y1="25" x2="152" y2="15" stroke="{{ a }}" stroke-width="2" stroke-opacity=".8"/>
+    <circle cx="110" cy="8" r="4" fill="#F59E0B" fill-opacity=".95" filter="url(#glow-{{ p }})"/>
   {% endif %}
 </svg>
 {% endmacro %}

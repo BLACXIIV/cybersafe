@@ -47,31 +47,46 @@
       <div class="xp-track" aria-label="Overall progress: {{ pct }} percent">
         <div class="xp-fill badge-{{ rank_info.current_badge|lower }}"></div>
         {% if rank_info.next_badge %}
-          <div class="xp-next-arrow">▲</div>
+          <div class="xp-next-arrow" aria-hidden="true"></div>
         {% endif %}
       </div>
+      {% set badge_icon = {'Bronze':'award', 'Silver':'star', 'Gold':'shield', 'Platinum':'crown'} %}
       <div class="xp-badges">
         {% for badge in ['Bronze', 'Silver', 'Gold', 'Platinum'] %}
-          <span class="{% if rank_info.current_badge == badge %}active{% endif %}">{{ badge }}</span>
+          <span class="{% if rank_info.current_badge == badge %}active{% endif %}">{{ lucide(badge_icon[badge], size=14) }}{{ badge }}</span>
         {% endfor %}
       </div>
       {% if rank_info.next_badge %}
-        <div class="next-badge">▶ {{ rank_info.points_to_next }} pts to {{ rank_info.next_badge }}</div>
+        <div class="next-badge">{{ lucide('chevron-right', size=14) }} {{ rank_info.points_to_next }} pts to {{ rank_info.next_badge }}</div>
       {% else %}
-        <div class="next-badge platinum-max">🏆 Platinum Master</div>
+        <div class="next-badge platinum-max">{{ lucide('trophy', size=16) }} Platinum Master</div>
       {% endif %}
 
       <div class="hero-stat-grid">
-        <div class="hero-stat"><strong>{{ user['points'] }}</strong><span>Points</span></div>
-        <div class="hero-stat"><strong>{{ level_summaries|length }}</strong><span>Missions</span></div>
-        <div class="hero-stat"><strong>{{ rank_info.pct }}%</strong><span>Progress</span></div>
+        <div class="hero-stat">
+          <span class="hero-stat-icon" aria-hidden="true">{{ lucide('zap', size=18) }}</span>
+          <strong>{{ user['points'] }}</strong>
+          <span>Points</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-icon" aria-hidden="true">{{ lucide('target', size=18) }}</span>
+          <strong>{{ level_summaries|length }}</strong>
+          <span>Missions</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-icon" aria-hidden="true">{{ lucide('trending-up', size=18) }}</span>
+          <strong>{{ rank_info.pct }}%</strong>
+          <span>Progress</span>
+        </div>
       </div>
     </div>
   </section>
 
   <a href="{{ url_for('main.internet_access') }}" style="text-decoration:none; color:inherit;">
-    <section class="access-status fade-up fade-up-2">
-      <div class="access-icon" aria-hidden="true">&#9673;</div>
+    <section class="access-status {% if active_voucher %}access-active{% else %}access-locked{% endif %} fade-up fade-up-2">
+      <div class="access-icon" aria-hidden="true">
+        {% if active_voucher %}{{ lucide('circle-dot', size=22) }}{% else %}{{ lucide('lock', size=22) }}{% endif %}
+      </div>
       <div>
         <strong>Internet Access {{ 'Active' if active_voucher else 'Locked' }}</strong>
         {% if active_voucher %}
@@ -93,7 +108,7 @@
       {% for item in level_summaries %}
         <a class="mission-item {% if not item.unlocked %}mission-locked{% else %}mission-{{ item.status }}{% endif %}" href="{% if item.unlocked %}{{ url_for('levels.play', level_number=item.level.level_number) }}{% else %}{{ url_for('levels.index') }}{% endif %}">
           <span class="mission-icon" aria-hidden="true">
-            {% if item.status == 'completed' %}&#10003;{% elif item.status == 'in_progress' %}&#9654;{% elif not item.unlocked %}&#128274;{% else %}&#9654;{% endif %}
+            {% if item.status == 'completed' %}{{ lucide('check', size=18) }}{% elif item.status == 'in_progress' %}{{ lucide('play', size=18) }}{% elif not item.unlocked %}{{ lucide('lock', size=18) }}{% else %}{{ lucide('play', size=18) }}{% endif %}
           </span>
           <span class="mission-copy">
             <strong>{{ item.level.name }}</strong>
@@ -109,7 +124,7 @@
               {% endif %}
             </small>
           </span>
-          <span class="mission-arrow" aria-hidden="true">&#8250;</span>
+          <span class="mission-arrow" aria-hidden="true">{{ lucide('chevron-right', size=20) }}</span>
         </a>
       {% else %}
         <p class="empty-state">No missions are available yet.</p>

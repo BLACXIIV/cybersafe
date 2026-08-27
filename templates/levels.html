@@ -13,7 +13,7 @@
     <div class="mission-item {% if not item.unlocked %}mission-locked{% endif %}" style="flex-direction:column; align-items:stretch; gap:0.5rem;">
       <div style="display:flex; justify-content:space-between; align-items:center;">
         <span class="name">
-          {% if item.status == 'completed' %}✅{% elif not item.unlocked %}🔒{% else %}▶️{% endif %}
+          {% if item.status == 'completed' %}{{ lucide('circle-check', size=18) }}{% elif not item.unlocked %}{{ lucide('lock', size=18) }}{% else %}{{ lucide('play', size=18) }}{% endif %}
           Level {{ lvl.level_number }} — {{ lvl.name }}
         </span>
         {% if item.unlocked %}

@@ -9,7 +9,7 @@
 
 <div class="panel" style="max-width:28rem; margin:0 auto 1.5rem; text-align:center;">
   {% if connected %}
-    <div style="font-size:3.5rem; margin-bottom:0.5rem;" aria-hidden="true">&#10003;</div>
+    <div style="width:3.5rem; height:3.5rem; margin:0 auto 0.5rem; color:var(--accent-green);" aria-hidden="true">{{ lucide('circle-check', size=56) }}</div>
     <h2 style="margin-top:0;">{% if already_used %}Already Connected{% else %}Connected!{% endif %}</h2>
     <p style="color:var(--text-secondary); font-size:0.95rem;">
       Your voucher <strong style="font-family:monospace;">{{ voucher.code }}</strong> has been accepted.
@@ -23,7 +23,7 @@
       <a class="btn btn-outline" href="{{ url_for('main.internet_access') }}">Internet Access</a>
     </div>
   {% elif is_expired %}
-    <div style="font-size:2.5rem; margin-bottom:0.5rem;" aria-hidden="true">&#9200;</div>
+    <div style="width:2.5rem; height:2.5rem; margin:0 auto 0.5rem;" aria-hidden="true">{{ lucide('timer', size=40) }}</div>
     <h2 style="margin-top:0;">Voucher Expired</h2>
     <p style="color:var(--text-secondary); font-size:0.95rem;">
       This voucher expired at <strong>{{ voucher.expires_at }}</strong>.<br>

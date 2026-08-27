@@ -1,4 +1,5 @@
 from flask import Flask, g
+from markupsafe import Markup
 
 from config import Config
 from database.db import register_app, init_db, ensure_admin_data, get_db
@@ -26,6 +27,21 @@ def create_app():
             db = get_db()
             status["active_voucher_flag"] = _levels._has_active_voucher(db, g.user["id"])
         return status
+
+    from lucide import lucide_icon
+
+    @app.template_global()
+    def lucide(name, **kwargs):
+        try:
+            if 'class' in kwargs:
+                kwargs['cls'] = kwargs.pop('class')
+            if 'size' in kwargs:
+                size = kwargs.pop('size')
+                kwargs.setdefault('width', size)
+                kwargs.setdefault('height', size)
+            return Markup(lucide_icon(name, **kwargs))
+        except Exception:
+            return Markup('')
 
     import auth
     import main

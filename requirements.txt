@@ -1,3 +1,4 @@
 Flask==3.0.3
 Werkzeug==3.0.3
 pytest>=8.0
+python-lucide==0.5.0

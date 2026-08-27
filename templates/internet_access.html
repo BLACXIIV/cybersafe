@@ -8,72 +8,104 @@
 </div>
 
 {% set has_unused = all_vouchers | selectattr('used_at', 'none') | selectattr('expires_at', 'none') | list | length > 0 %}
-<form method="post" action="{{ url_for('main.internet_access_toggle') }}" class="panel {% if active_voucher %}panel-active{% else %}panel-inactive{% endif %}">
-  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-    <div>
-      <h2 style="margin:0;">
-        {% if active_voucher %}&#9673; Internet Access On{% else %}Internet Access Off{% endif %}
-      </h2>
-      <p style="color:var(--text-secondary); font-size:0.85rem; margin:0.25rem 0 0;">
-        {% if active_voucher %}
-          Active until {{ active_voucher.expires_at }}
-        {% else %}
-          {% if has_unused %}You have an unused voucher.{% else %}Earn a voucher by completing a mission.{% endif %}
-        {% endif %}
-      </p>
+<form method="post" action="{{ url_for('main.internet_access_toggle') }}" class="panel internet-toggle-card {% if active_voucher %}panel-active{% else %}panel-inactive{% endif %}">
+  <div class="internet-toggle-row">
+    <div class="internet-toggle-main">
+      <div class="internet-toggle-icon">
+        {% if active_voucher %}{{ lucide('circle-dot', size=26) }}{% else %}{{ lucide('circle-off', size=26) }}{% endif %}
+      </div>
+      <div>
+        <h2>Internet Access {{ 'On' if active_voucher else 'Off' }}</h2>
+        <p>
+          {% if active_voucher %}
+            Active until {{ active_voucher.expires_at }}
+          {% else %}
+            {% if has_unused %}You have an unused voucher.{% else %}Earn a voucher by completing a mission.{% endif %}
+          {% endif %}
+        </p>
+      </div>
     </div>
-    <button type="submit" class="btn {% if active_voucher %}btn-outline{% else %}btn-primary{% endif %}" {% if not active_voucher and not has_unused %}disabled style="opacity:0.5; cursor:not-allowed;"{% endif %}>
+    <button type="submit" class="btn {% if active_voucher %}btn-outline{% else %}btn-primary{% endif %}" {% if not active_voucher and not has_unused %}disabled{% endif %}>
       {{ 'Turn Off' if active_voucher else 'Turn On' }}
     </button>
   </div>
 </form>
 
 {% if active_voucher %}
-  <div class="panel">
-    <p style="font-size:1.1rem; margin:0.5rem 0;">
-      <strong style="font-family:monospace; font-size:1.25rem;">{{ active_voucher.code }}</strong>
-    </p>
-    <p style="color:var(--text-secondary); font-size:0.95rem; margin:0.25rem 0;">
-      Voucher from <strong>Level {{ active_voucher.level_number }} — {{ active_voucher.level_name }}</strong>
-    </p>
-    {% set rem = remaining(active_voucher.expires_at) %}
-    {% if rem %}
-      <p style="color:var(--accent-green); font-weight:600; margin:0.5rem 0;">
-        Time remaining: {{ rem.seconds // 3600 }}h {{ (rem.seconds // 60) % 60 }}m
-      </p>
-    {% endif %}
+  <div class="panel voucher-active-card">
+    <div class="voucher-code-block">
+      {{ lucide('ticket', size=22) }}
+      <span>{{ active_voucher.code }}</span>
+    </div>
+    <div class="voucher-meta">
+      <span>{{ lucide('layers', size=14) }} Level {{ active_voucher.level_number }} — {{ active_voucher.level_name }}</span>
+      {% set rem = remaining(active_voucher.expires_at) %}
+      {% if rem %}
+        <span class="voucher-time" id="voucher-countdown" data-expires="{{ active_voucher.expires_at }}">
+          {{ lucide('clock', size=14) }} Time remaining: <span class="countdown">{{ rem.seconds // 3600 }}h {{ (rem.seconds // 60) % 60 }}m {{ rem.seconds % 60 }}s</span>
+        </span>
+      {% endif %}
+    </div>
   </div>
 {% endif %}
 
-<div class="panel" style="margin-top:1.5rem;">
-  <h2 style="margin-top:0;">Voucher History</h2>
-  <div class="mission-list" style="margin-top:1rem;">
+<div class="panel voucher-history-panel">
+  <h2>{{ lucide('history', size=18) }} Voucher History</h2>
+  <div class="voucher-list">
     {% for v in all_vouchers %}
-      <div class="mission-item" style="flex-direction:column; align-items:stretch; gap:0.35rem;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span class="name" style="font-family:monospace;">{{ v.code }}</span>
+      <div class="voucher-row">
+        <div class="voucher-row-top">
+          <span class="voucher-code">{{ v.code }}</span>
           {% if voucher_active(v) %}
-            <span style="color:var(--accent-green); font-size:0.8rem; font-weight:600;">Active</span>
+            <span class="voucher-status status-active">{{ lucide('circle-dot', size=12) }} Active</span>
           {% elif v.used_at %}
-            <span style="color:var(--accent-red, #ef4444); font-size:0.8rem; font-weight:600;">Expired</span>
+            <span class="voucher-status status-expired">{{ lucide('circle-off', size=12) }} Expired</span>
           {% else %}
-            <span style="color:var(--accent-orange); font-size:0.8rem; font-weight:600;">Unused</span>
+            <span class="voucher-status status-unused">{{ lucide('circle', size=12) }} Unused</span>
           {% endif %}
         </div>
-        <span style="font-size:0.85rem; color:var(--text-secondary);">
-          Level {{ v.level_number }} — {{ v.level_name }}
-          {% if v.used_at and v.expires_at %}
-            &middot; used {{ v.used_at }} &middot; expired {{ v.expires_at }}
-          {% elif v.used_at %}
-            &middot; used {{ v.used_at }}
-          {% else %}
-            &middot; generated {{ v.created_at }}
-          {% endif %}
-        </span>
+        <div class="voucher-row-bottom">
+          <span>Level {{ v.level_number }} — {{ v.level_name }}</span>
+          <span class="voucher-dates">
+            {% if v.used_at and v.expires_at %}
+              used {{ v.used_at }} &middot; expired {{ v.expires_at }}
+            {% elif v.used_at %}
+              used {{ v.used_at }}
+            {% else %}
+              generated {{ v.created_at }}
+            {% endif %}
+          </span>
+        </div>
       </div>
     {% else %}
-      <p class="empty-state" style="color:var(--text-secondary);">No vouchers yet.</p>
+      <p class="voucher-empty">No vouchers yet.</p>
     {% endfor %}
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const el = document.getElementById('voucher-countdown');
+  if (!el) return;
+  const raw = el.dataset.expires;
+  const expires = new Date(raw.replace(' ', 'T') + 'Z');
+  const out = el.querySelector('.countdown');
+  function update() {
+    const diff = expires - new Date();
+    if (diff <= 0) {
+      out.textContent = '0h 0m 0s';
+      el.classList.add('expired');
+      return;
+    }
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    out.textContent = h + 'h ' + m + 'm ' + s + 's';
+  }
+  update();
+  setInterval(update, 1000);
+})();
+</script>
 {% endblock %}
