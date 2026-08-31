@@ -11,7 +11,7 @@
     <form method="post" action="{{ url_for('auth.login') }}" novalidate>
       <div class="form-group">
         <label for="identifier">Username or Email</label>
-        <input type="text" id="identifier" name="identifier" placeholder="jdelacruz or you@school.edu"
+        <input type="text" id="identifier" name="identifier" placeholder="joseMC@gmail.com or jmchan"
                value="{{ request.form.get('identifier', '') }}" required autofocus>
       </div>
 

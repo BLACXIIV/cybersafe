@@ -25,7 +25,7 @@
     </div>
 
     {% if request.args.get('welcome') %}
-      <div class="hero-speech-bubble">Welcome back, {{ user['full_name'] }}!</div>
+      <div class="hero-speech-bubble">{% if is_new_user %}Welcome{% else %}Welcome back{% endif %}, {{ user['full_name'] }}!</div>
     {% endif %}
 
     <div class="hero-avatar-wrap float">

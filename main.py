@@ -12,6 +12,15 @@ bp = Blueprint("main", __name__)
 from ranks import BADGE_TITLES, rank_info as _rank_info
 
 
+def _is_new_user():
+    """True when the student has never answered a question, so the greeting
+    reads "Welcome" instead of "Welcome back"."""
+    row = get_db().execute(
+        "SELECT 1 FROM user_answers WHERE user_id = ? LIMIT 1", (g.user["id"],)
+    ).fetchone()
+    return row is None
+
+
 def _mission_summary():
     """Small real-data summary for the dashboard: per-level status + overall progress."""
     db = get_db()
@@ -95,6 +104,7 @@ def landing():
             active_voucher=active_voucher,
             all_vouchers=all_vouchers,
             rank_info=rank_info,
+            is_new_user=_is_new_user(),
         )
     return render_template("index.html")
 
@@ -110,6 +120,7 @@ def dashboard():
         active_voucher=active_voucher,
         all_vouchers=all_vouchers,
         rank_info=rank_info,
+        is_new_user=_is_new_user(),
     )
 
 

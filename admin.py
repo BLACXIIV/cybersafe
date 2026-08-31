@@ -5,9 +5,12 @@ from functools import wraps
 from flask import Blueprint, current_app, flash, g, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
+from werkzeug.security import generate_password_hash
+
 from auth import login_required
 from database.db import get_db
 from ranks import BADGE_TITLES, BADGE_ORDER, rank_info
+from security import validate_password, describe_problems
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 ALLOWED_LOGO_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif"}
@@ -90,6 +93,36 @@ def dashboard():
                     db.commit()
                 else:
                     flash("Cannot suspend an admin account.", "error")
+        elif action == "reset_password":
+            # Lets an admin hand a forgotten account a new password. The same
+            # strength rules as signup apply.
+            user_id = request.form.get("user_id", type=int)
+            password = request.form.get("new_password", "")
+            confirm = request.form.get("confirm_password", "")
+            student = db.execute(
+                "SELECT id, full_name, username, email, role FROM users WHERE id = ?", (user_id,)
+            ).fetchone() if user_id else None
+
+            if student is None or student["role"] == "admin":
+                flash("Cannot change the password for that account.", "error")
+            elif password != confirm:
+                flash("Passwords do not match.", "error")
+            else:
+                problem = describe_problems(
+                    validate_password(
+                        password,
+                        personal_values=(student["full_name"], student["username"], student["email"]),
+                    )
+                )
+                if problem:
+                    flash(problem, "error")
+                else:
+                    db.execute(
+                        "UPDATE users SET password_hash = ? WHERE id = ?",
+                        (generate_password_hash(password), student["id"]),
+                    )
+                    db.commit()
+                    flash(f"Password updated for {student['full_name']}.", "success")
         return redirect(url_for("admin.dashboard"))
 
     settings = db.execute("SELECT * FROM school_settings WHERE id = 1").fetchone()

@@ -12,14 +12,14 @@
       <div class="signup-fields">
       <div class="form-group">
         <label for="full_name">Full Name</label>
-        <input type="text" id="full_name" name="full_name" placeholder="Juan Dela Cruz"
+        <input type="text" id="full_name" name="full_name" placeholder="Jose Mari Chan"
                value="{{ request.form.get('full_name', '') }}" required>
       </div>
 
       <div class="form-row">
         <div class="form-group">
           <label for="username">Username</label>
-          <input type="text" id="username" name="username" placeholder="jdelacruz"
+          <input type="text" id="username" name="username" placeholder="jmchan"
                  value="{{ request.form.get('username', '') }}" required>
         </div>
         <div class="form-group">
@@ -44,7 +44,7 @@
 
       <div class="form-group">
         <label for="email">Email</label>
-        <input type="email" id="email" name="email" placeholder="you@school.edu"
+        <input type="email" id="email" name="email" placeholder="joseMC@gmail.com"
                value="{{ request.form.get('email', '') }}" required>
       </div>
 
@@ -93,7 +93,9 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="{{ url_for('static', filename='js/password-strength.js') }}"></script>
 <script>
+(function() {
   const gradeSelect = document.getElementById('grade_id');
   const sectionSelect = document.getElementById('section_id');
   const sectionOptions = Array.from(sectionSelect.options).slice(1);
@@ -112,128 +114,25 @@
   gradeSelect.addEventListener('change', updateSections);
   updateSections();
 
-  // Mirrors security.py so students get live feedback. The server re-checks
-  // everything on submit, so this is a convenience layer, not the gate.
-  const MIN_LENGTH = 10;
-  const MIN_DISTINCT = 6;
-  const COMMON = [
-    'password', 'passcode', 'letmein', 'welcome', 'changeme', 'default', 'secret',
-    'qwerty', 'qwertyuiop', 'asdfgh', 'asdfghjkl', 'zxcvbn', 'azerty', 'abcabc',
-    'abcdef', 'iloveyou', 'monkey', 'dragon', 'sunshine', 'princess', 'football',
-    'basketball', 'baseball', 'soccer', 'hockey', 'starwars', 'pokemon', 'superman',
-    'batman', 'shadow', 'master', 'login', 'admin', 'administrator', 'guest',
-    'testing', 'trustno', 'whatever', 'freedom', 'hello', 'hellothere', 'computer',
-    'internet', 'google', 'facebook', 'youtube', 'tiktok', 'cybersafe', 'cyber',
-    'school', 'student', 'teacher', 'grade', 'philippines', 'pilipinas', 'manila',
-    'mahalkita'
-  ];
-  const WALK_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm', '1qaz2wsx',
-                     'abcdefghijklmnopqrstuvwxyz', '0123456789'];
-  const LEET = { '@': 'a', '4': 'a', '8': 'b', '(': 'c', '3': 'e', '6': 'g', '9': 'g',
-                 '1': 'i', '!': 'i', '|': 'i', '0': 'o', '5': 's', '$': 's', '7': 't',
-                 '+': 't', '2': 'z' };
-
-  const WALKS = new Set();
-  WALK_ROWS.forEach((row) => {
-    [row, row.split('').reverse().join('')].forEach((dir) => {
-      for (let i = 0; i <= dir.length - 4; i++) WALKS.add(dir.slice(i, i + 4));
-    });
+  window.initPasswordStrength({
+    password: document.getElementById('password'),
+    confirm: document.getElementById('confirm_password'),
+    rules: document.getElementById('pw-rules'),
+    meterFill: document.getElementById('pw-meter-fill'),
+    meterText: document.getElementById('pw-meter-text'),
+    personal: function() {
+      return [
+        document.getElementById('full_name').value,
+        document.getElementById('username').value,
+        document.getElementById('email').value
+      ];
+    },
+    watch: [
+      document.getElementById('full_name'),
+      document.getElementById('username'),
+      document.getElementById('email')
+    ]
   });
-
-  function normalise(value) {
-    return value.toLowerCase().replace(/./g, (ch) => LEET[ch] || ch).replace(/[^a-z0-9]/g, '');
-  }
-
-  function personalTerms() {
-    const terms = new Set();
-    [document.getElementById('full_name').value,
-     document.getElementById('username').value,
-     document.getElementById('email').value].forEach((value) => {
-      value.split('@')[0].split(/[^A-Za-z0-9]+/).forEach((word) => {
-        if (word.length >= 3) terms.add(word.toLowerCase());
-      });
-    });
-    return terms;
-  }
-
-  const passwordInput = document.getElementById('password');
-  const confirmInput = document.getElementById('confirm_password');
-  const ruleItems = Array.from(document.getElementById('pw-rules').children);
-  const meterFill = document.getElementById('pw-meter-fill');
-  const meterText = document.getElementById('pw-meter-text');
-
-  function evaluate() {
-    const pw = passwordInput.value;
-    const norm = normalise(pw);
-    const lower = pw.toLowerCase();
-    const base = norm.replace(/\d+$/, '');
-
-    let personalHit = false;
-    personalTerms().forEach((term) => {
-      const t = normalise(term);
-      if (t && norm.includes(t)) personalHit = true;
-    });
-
-    const commonHit = COMMON.includes(norm) || COMMON.includes(base) ||
-      COMMON.some((word) => word.length >= 5 && norm.includes(word));
-    const walkHit = Array.from(WALKS).some((run) => lower.includes(run));
-    const repeatHit = /(.)\1{2,}/.test(pw);
-
-    let periodic = false;
-    for (let unit = 1; unit <= pw.length / 2; unit++) {
-      if (pw.length % unit === 0 && pw.slice(0, unit).repeat(pw.length / unit) === pw) {
-        periodic = true;
-        break;
-      }
-    }
-    const varietyHit = periodic || new Set(pw).size < MIN_DISTINCT;
-
-    return {
-      length: pw.length >= MIN_LENGTH,
-      lower: /[a-z]/.test(pw),
-      upper: /[A-Z]/.test(pw),
-      number: /[0-9]/.test(pw),
-      symbol: /[^A-Za-z0-9]/.test(pw),
-      uncommon: pw.length > 0 && !commonHit && !walkHit && !repeatHit && !varietyHit,
-      personal: pw.length > 0 && !personalHit,
-      match: pw.length > 0 && pw === confirmInput.value
-    };
-  }
-
-  function render() {
-    const results = evaluate();
-    const empty = passwordInput.value.length === 0;
-    let passed = 0;
-
-    ruleItems.forEach((item) => {
-      const ok = results[item.dataset.rule];
-      item.classList.toggle('ok', !empty && ok);
-      item.classList.toggle('bad', !empty && !ok);
-      if (ok) passed++;
-    });
-
-    const total = ruleItems.length;
-    const ratio = empty ? 0 : passed / total;
-    meterFill.style.width = Math.round(ratio * 100) + '%';
-
-    let label = '—';
-    let state = '';
-    if (!empty) {
-      if (ratio < 0.5) { label = 'Weak'; state = 'weak'; }
-      else if (ratio < 1) { label = 'Almost there'; state = 'medium'; }
-      else { label = 'Strong'; state = 'strong'; }
-    }
-    meterText.textContent = label;
-    meterFill.className = state;
-  }
-
-  ['input', 'blur'].forEach((evt) => {
-    passwordInput.addEventListener(evt, render);
-    confirmInput.addEventListener(evt, render);
-  });
-  ['full_name', 'username', 'email'].forEach((id) => {
-    document.getElementById(id).addEventListener('input', render);
-  });
-  render();
+})();
 </script>
 {% endblock %}
