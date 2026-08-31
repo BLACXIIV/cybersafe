@@ -39,6 +39,14 @@ def register_app(app):
         print("Initialized the database.")
 
 
+def _ensure_user_answers_claimed_column(db):
+    columns = {row[1] for row in db.execute("PRAGMA table_info(user_answers)").fetchall()}
+    if "claimed" not in columns:
+        db.execute("ALTER TABLE user_answers ADD COLUMN claimed INTEGER NOT NULL DEFAULT 0")
+        # Existing answers were already credited under the old system, so mark them claimed.
+        db.execute("UPDATE user_answers SET claimed = 1")
+
+
 def ensure_admin_data(app):
     """Add admin tables and the initial admin account without resetting data."""
     database_path = app.config["DATABASE_PATH"]
@@ -47,6 +55,8 @@ def ensure_admin_data(app):
 
     with app.app_context():
         db = get_db()
+        _ensure_user_answers_claimed_column(db)
+
         columns = {row[1] for row in db.execute("PRAGMA table_info(users)").fetchall()}
         if "role" not in columns:
             db.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'student'")

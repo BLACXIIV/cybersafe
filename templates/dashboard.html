@@ -24,12 +24,16 @@
       <span class="circuit-node circuit-node-three"></span>
     </div>
 
+    {% if request.args.get('welcome') %}
+      <div class="hero-speech-bubble">Welcome back, {{ user['full_name'] }}!</div>
+    {% endif %}
+
     <div class="hero-avatar-wrap float">
-      {% if request.args.get('welcome') %}
-        <div class="hero-speech-bubble">Welcome back, {{ user['full_name'] }}!</div>
-      {% endif %}
       <div class="hero-avatar-aura pulse-glow rank-{{ rank_info.current_badge|lower }}"></div>
       <div class="hero-avatar rank-{{ rank_info.current_badge|lower }}" aria-hidden="true">
+        <a class="hero-info-btn" href="{{ url_for('main.hero_showcase') }}" aria-label="Open hero showcase">
+          {{ lucide('arrow-up-right', size=15) }}
+        </a>
         {{ render_hero_avatar(rank_info.current_badge) }}
       </div>
     </div>
@@ -132,6 +136,7 @@
     </div>
   </section>
 </section>
+
 {% endblock %}
 
 {% block scripts %}

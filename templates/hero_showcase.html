@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "hero_avatar.html" import render_hero_avatar %}
+{% block title %}Hero Showcase — Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+{% set badge_titles = {'Bronze': 'Cyber Rookie', 'Silver': 'Cyber Sentinel', 'Gold': 'Cyber Guardian', 'Platinum': 'Cyber Master'} %}
+{% set rank_descriptions = {
+  'Bronze': 'Just getting started. Keep completing missions to grow.',
+  'Silver': 'Solid cybersecurity awareness. You are becoming a reliable sentinel.',
+  'Gold': 'A strong defender of the digital world. Keep pushing forward.',
+  'Platinum': 'You have reached the highest rank. Outstanding mastery.'
+} %}
+{% set badge_index = {'Bronze': 0, 'Silver': 1, 'Gold': 2, 'Platinum': 3} %}
+
+<section class="hero-showcase-page">
+  <div class="hero-showcase-card">
+    <a class="hero-showcase-back" href="{{ url_for('main.dashboard') }}" aria-label="Back to dashboard">
+      {{ lucide('arrow-left', size=20) }}
+    </a>
+
+    <div class="hero-showcase-heading">
+      <h1>Hero Showcase</h1>
+      <p>Explore the hero avatars and your rank progress.</p>
+    </div>
+
+    <div class="hero-showcase" id="hero-showcase" data-active="{{ badge_index[rank_info.current_badge] }}" data-start="{{ 4 + badge_index[rank_info.current_badge] }}">
+      <div class="hero-showcase-carousel">
+        <button type="button" class="hero-showcase-arrow hero-showcase-prev" aria-label="Previous hero">{{ lucide('chevron-left', size=22) }}</button>
+        <div class="hero-showcase-viewport">
+          <div class="hero-showcase-track" data-start="{{ 4 + badge_index[rank_info.current_badge] }}">
+            {% for set in range(3) %}
+              {% for rank in ['Bronze', 'Silver', 'Gold', 'Platinum'] %}
+                <div class="hero-showcase-slide" data-rank="{{ rank }}" data-index="{{ loop.index0 }}">
+                  <div class="hero-showcase-avatar">{{ render_hero_avatar(rank) }}</div>
+                  <strong class="hero-showcase-title">{{ badge_titles[rank] }}</strong>
+                  <span class="hero-showcase-rank">{{ rank }}</span>
+                  <p class="hero-showcase-desc">{{ rank_descriptions[rank] }}</p>
+                </div>
+              {% endfor %}
+            {% endfor %}
+          </div>
+        </div>
+        <button type="button" class="hero-showcase-arrow hero-showcase-next" aria-label="Next hero">{{ lucide('chevron-right', size=22) }}</button>
+      </div>
+    </div>
+
+    <div class="hero-showcase-current">
+      <strong>You are here: {{ rank_info.current_title }} — {{ rank_info.current_badge }}</strong>
+      <p>{{ rank_descriptions[rank_info.current_badge] }}</p>
+      <div class="hero-showcase-stats">
+        <span>{{ rank_info.points }} / {{ rank_info.max_points }} XP</span>
+        {% if rank_info.next_badge %}
+          <span>{{ rank_info.points_to_next }} pts to {{ rank_info.next_badge }}</span>
+        {% else %}
+          <span>Max rank reached</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const showcase = document.getElementById('hero-showcase');
+  if (!showcase) return;
+  const track = showcase.querySelector('.hero-showcase-track');
+  const prev = showcase.querySelector('.hero-showcase-prev');
+  const next = showcase.querySelector('.hero-showcase-next');
+  const total = 4;
+  if (!track || !prev || !next) return;
+  const slides = track.querySelectorAll('.hero-showcase-slide');
+  const slideCount = slides.length;
+  const startPos = parseInt(track.dataset.start || '4', 10);
+  let pos = startPos;
+  let isJumping = false;
+
+  function realIndex(p) { return ((p % total) + total) % total; }
+  function slideWidth() {
+    const cssVal = parseFloat(getComputedStyle(showcase).getPropertyValue('--slide-width'));
+    if (!isNaN(cssVal) && cssVal > 0) return cssVal;
+    return window.matchMedia('(max-width: 640px)').matches ? 100 : 33.333;
+  }
+  function setTransform(p, animate) {
+    const w = slideWidth();
+    track.style.transition = animate ? 'transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)' : 'none';
+    track.style.transform = 'translateX(' + ((100 - w) / 2 - p * w) + '%)';
+  }
+  function updateDots(p) {
+    const real = realIndex(p);
+    slides.forEach(function(s, i) { s.classList.toggle('active', i === p); });
+    showcase.setAttribute('data-active', real);
+  }
+  function goTo(p) {
+    if (isJumping) return;
+    pos = p;
+    setTransform(pos, true);
+    updateDots(pos);
+    if (pos < total || pos >= slideCount - total) {
+      isJumping = true;
+      setTimeout(function() {
+        if (pos < total) pos += total;
+        else pos -= total;
+        setTransform(pos, false);
+        updateDots(pos);
+        isJumping = false;
+      }, 650);
+    }
+  }
+
+  prev.addEventListener('click', function() { goTo(pos - 1); });
+  next.addEventListener('click', function() { goTo(pos + 1); });
+
+  setTransform(startPos, false);
+  updateDots(startPos);
+})();
+</script>
+{% endblock %}

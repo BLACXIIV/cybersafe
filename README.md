@@ -76,9 +76,15 @@ flask --app app init-db
 - Passwords are hashed (`werkzeug.security`), never stored raw.
 - `SECRET_KEY` in `config.py` is a dev placeholder — set a real one via the
   `CYBERSAFE_SECRET_KEY` environment variable before any real deployment.
-- Basic server-side validation on signup (password length, matching confirm
-  field, required fields); you'll want to add rate limiting / CSRF protection
-  (e.g. `Flask-WTF`) before this touches a real school network.
+- Password policy lives in `security.py` and is enforced server-side on signup:
+  minimum 10 characters, must mix lowercase, uppercase, numbers, and symbols,
+  and is rejected if it matches a common-password blocklist (leetspeak-folded,
+  so `P@ssw0rd` is caught), contains a keyboard walk or run like `qwer`/`1234`,
+  repeats a short pattern, or is built from the user's own name, username, or
+  email. The signup page mirrors the same rules as a live checklist, but the
+  server check is authoritative.
+- Still outstanding: rate limiting and CSRF protection (e.g. `Flask-WTF`)
+  before this touches a real school network.
 
 ## Suggested next steps
 

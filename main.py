@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, g, request, redirect, url_for, flash
 
 import levels
-from auth import login_required
+from auth import login_required, student_required
 from database.db import get_db
 
 bp = Blueprint("main", __name__)
@@ -85,6 +85,8 @@ def _mission_summary():
 @bp.route("/")
 def landing():
     if g.user:
+        if g.user["role"] == "admin":
+            return redirect(url_for("admin.dashboard"))
         summaries, active_voucher, all_vouchers, rank_info = _mission_summary()
         return render_template(
             "dashboard.html",
@@ -98,7 +100,7 @@ def landing():
 
 
 @bp.route("/dashboard")
-@login_required
+@student_required
 def dashboard():
     summaries, active_voucher, all_vouchers, rank_info = _mission_summary()
     return render_template(
@@ -111,11 +113,36 @@ def dashboard():
     )
 
 
+@bp.route("/hero-showcase")
+@student_required
+def hero_showcase():
+    summaries, active_voucher, all_vouchers, rank_info = _mission_summary()
+    return render_template(
+        "hero_showcase.html",
+        user=g.user,
+        rank_info=rank_info,
+    )
+
+
 @bp.route("/internet-access")
-@login_required
+@student_required
 def internet_access():
     db = get_db()
     user_id = g.user["id"]
+
+    # Safety net: if points are waiting to be claimed there must be a voucher to
+    # claim them with, even for answers recorded before vouchers were persisted
+    # up front (e.g. the user left the feedback page without opening it).
+    if levels._pending_points(db, user_id) > 0:
+        for level_id in db.execute(
+            """SELECT DISTINCT q.level_id
+               FROM user_answers ua
+               JOIN questions q ON q.id = ua.question_id
+               WHERE ua.user_id = ? AND ua.claimed = 0 AND ua.points_earned >= 25""",
+            (user_id,),
+        ).fetchall():
+            levels._ensure_voucher(db, user_id, level_id["level_id"])
+
     all_vouchers = db.execute(
         """SELECT v.*, l.name AS level_name, l.level_number
            FROM vouchers v
@@ -151,8 +178,52 @@ def internet_access():
     )
 
 
+@bp.route("/internet-access/redeem", methods=("POST",))
+@student_required
+def internet_access_redeem():
+    """Turn on access with a voucher code the student pastes in, instead of
+    letting the toggle pick one implicitly."""
+    db = get_db()
+    user_id = g.user["id"]
+    code = request.form.get("code", "").strip().upper()
+
+    if not code:
+        flash("Enter a voucher code.", "error")
+        return redirect(url_for("main.internet_access"))
+
+    all_vouchers = db.execute(
+        "SELECT * FROM vouchers WHERE user_id = ?", (user_id,)
+    ).fetchall()
+
+    if any(levels._voucher_active(v) for v in all_vouchers):
+        flash("Internet access is already on. Turn it off before using another voucher.", "error")
+        return redirect(url_for("main.internet_access"))
+
+    voucher = next((v for v in all_vouchers if v["code"].upper() == code), None)
+    if voucher is None:
+        flash("That voucher code is not valid for your account.", "error")
+        return redirect(url_for("main.internet_access"))
+
+    if voucher["used_at"] is not None or voucher["expires_at"] is not None:
+        flash("That voucher has already been used.", "error")
+        return redirect(url_for("main.internet_access"))
+
+    db.execute(
+        "UPDATE vouchers SET used_at = CURRENT_TIMESTAMP, expires_at = datetime('now', '+5 hours') WHERE id = ?",
+        (voucher["id"],),
+    )
+    claimed = levels._claim_pending_points(db, user_id)
+    db.commit()
+
+    if claimed > 0:
+        flash(f"Voucher {voucher['code']} activated. You claimed {claimed} points.", "success")
+    else:
+        flash(f"Voucher {voucher['code']} activated.", "success")
+    return redirect(url_for("main.internet_access"))
+
+
 @bp.route("/internet-access/toggle", methods=("POST",))
-@login_required
+@student_required
 def internet_access_toggle():
     """Toggle the user's internet access on/off using an available voucher."""
     db = get_db()
@@ -184,6 +255,10 @@ def internet_access_toggle():
         "UPDATE vouchers SET used_at = CURRENT_TIMESTAMP, expires_at = datetime('now', '+5 hours') WHERE id = ?",
         (unused["id"],),
     )
+    claimed = levels._claim_pending_points(db, user_id)
     db.commit()
-    flash("Internet access turned on.", "success")
+    if claimed > 0:
+        flash(f"Internet access turned on. You claimed {claimed} points.", "success")
+    else:
+        flash("Internet access turned on.", "success")
     return redirect(url_for("main.internet_access"))

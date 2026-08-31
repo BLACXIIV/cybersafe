@@ -61,7 +61,12 @@
           {% elif v.used_at %}
             <span class="voucher-status status-expired">{{ lucide('circle-off', size=12) }} Expired</span>
           {% else %}
-            <span class="voucher-status status-unused">{{ lucide('circle', size=12) }} Unused</span>
+            <span class="voucher-row-actions">
+              <span class="voucher-status status-unused">{{ lucide('circle', size=12) }} Unused</span>
+              {% if not active_voucher %}
+                <button type="button" class="btn btn-sm btn-primary voucher-use">Use</button>
+              {% endif %}
+            </span>
           {% endif %}
         </div>
         <div class="voucher-row-bottom">
@@ -81,6 +86,20 @@
       <p class="voucher-empty">No vouchers yet.</p>
     {% endfor %}
   </div>
+</div>
+
+<div id="redeem-modal" class="modal-overlay no-fade" style="display:none;" aria-hidden="true">
+  <form class="modal-box" method="post" action="{{ url_for('main.internet_access_redeem') }}" role="dialog" aria-modal="true" aria-labelledby="redeem-title">
+    <h2 id="redeem-title" style="margin:0 0 0.5rem; font-size:1rem;">Use Voucher</h2>
+    <p style="margin:0 0 1rem; color:var(--text-secondary); font-size:0.9rem;">Enter the voucher code you copied to turn on internet access.</p>
+    <input class="admin-input voucher-code-input" type="text" name="code" id="redeem-code"
+           placeholder="XXXXXXXX" maxlength="8" required autocomplete="off" spellcheck="false"
+           aria-label="Voucher code">
+    <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:1rem;">
+      <button type="button" class="btn btn-outline" id="redeem-cancel">Cancel</button>
+      <button type="submit" class="btn btn-primary">Use Voucher</button>
+    </div>
+  </form>
 </div>
 {% endblock %}
 
@@ -106,6 +125,36 @@
   }
   update();
   setInterval(update, 1000);
+})();
+</script>
+<script>
+(function() {
+  const modal = document.getElementById('redeem-modal');
+  const input = document.getElementById('redeem-code');
+  const cancel = document.getElementById('redeem-cancel');
+  const triggers = document.querySelectorAll('.voucher-use');
+  if (!modal || !input || !cancel || !triggers.length) return;
+
+  function open() {
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    input.value = '';
+    input.focus();
+  }
+  function close() {
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  triggers.forEach(function(btn) { btn.addEventListener('click', open); });
+  cancel.addEventListener('click', close);
+  modal.addEventListener('click', function(e) { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal.style.display === 'flex') close();
+  });
+  input.addEventListener('input', function() {
+    input.value = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
 })();
 </script>
 {% endblock %}

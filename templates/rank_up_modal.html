@@ -1,0 +1,193 @@
+{% from "hero_avatar.html" import render_hero_avatar %}
+{% if rank_up %}
+<style>
+  /* Rank-up celebration overlay */
+  .rank-up-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 10, 25, .92);
+    backdrop-filter: blur(8px);
+    z-index: 9990;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    animation: rank-up-fade-in .4s ease;
+  }
+  .rank-up-card {
+    position: relative;
+    background: var(--bg-panel);
+    border: 2px solid var(--border-color);
+    border-radius: 24px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    max-width: 320px;
+    width: 100%;
+    box-shadow: 0 0 60px rgba(34, 211, 238, .25), 0 16px 48px rgba(0, 0, 0, .65);
+    animation: rank-up-pop .55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    overflow: hidden;
+  }
+  .rank-up-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 25%, rgba(34, 211, 238, .18), transparent 60%);
+    pointer-events: none;
+  }
+  .rank-up-avatar {
+    width: 170px;
+    height: 220px;
+    margin: 0 auto 1rem;
+    position: relative;
+    z-index: 1;
+    animation: rank-up-float 3s ease-in-out infinite;
+  }
+  .rank-up-avatar svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .rank-up-label {
+    color: var(--accent-cyan);
+    font-size: .9rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .15em;
+    margin-bottom: .25rem;
+    position: relative;
+    z-index: 1;
+  }
+  .rank-up-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0 0 .3rem;
+    position: relative;
+    z-index: 1;
+  }
+  .rank-up-badge {
+    display: inline-block;
+    padding: .18rem .7rem;
+    border-radius: 99px;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: .75rem;
+    border: 1px solid var(--border-color);
+    position: relative;
+    z-index: 1;
+  }
+  .rank-up-sub {
+    color: var(--text-secondary);
+    font-size: .85rem;
+    margin: 0 0 1.25rem;
+    line-height: 1.4;
+    position: relative;
+    z-index: 1;
+  }
+  .rank-up-confetti {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9998;
+  }
+  @keyframes rank-up-fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes rank-up-pop {
+    from { opacity: 0; transform: scale(.65) translateY(30px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes rank-up-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+  .rank-up-badge.badge-bronze { color: #cd7f32; background: rgba(205, 127, 50, .12); border-color: rgba(205, 127, 50, .45); }
+  .rank-up-badge.badge-silver { color: #a1a1aa; background: rgba(161, 161, 170, .12); border-color: rgba(161, 161, 170, .45); }
+  .rank-up-badge.badge-gold { color: #facc15; background: rgba(250, 204, 21, .12); border-color: rgba(250, 204, 21, .45); }
+  .rank-up-badge.badge-platinum { color: #e2e8f0; background: rgba(226, 232, 240, .12); border-color: rgba(226, 232, 240, .45); }
+</style>
+
+<div class="rank-up-overlay" id="rank-up-overlay">
+  <div class="rank-up-card" data-rank="{{ rank_up.new_badge|lower }}">
+    <div class="rank-up-avatar">{{ render_hero_avatar(rank_up.new_badge, size='lg') }}</div>
+    <div class="rank-up-label">Rank Up!</div>
+    <div class="rank-up-title">{{ rank_up.new_title }}</div>
+    <div class="rank-up-badge badge-{{ rank_up.new_badge|lower }}">{{ rank_up.new_badge }}</div>
+    <p class="rank-up-sub">You advanced from {{ rank_up.old_title }} to {{ rank_up.new_title }}</p>
+    <button type="button" class="btn btn-primary" id="rank-up-continue">Continue</button>
+  </div>
+</div>
+<canvas id="rank-up-confetti" class="rank-up-confetti"></canvas>
+<script>
+(function() {
+  const overlay = document.getElementById('rank-up-overlay');
+  const closeBtn = document.getElementById('rank-up-continue');
+  if (!overlay || !closeBtn) return;
+
+  function closeOverlay() {
+    overlay.style.opacity = '0';
+    setTimeout(function() { overlay.style.display = 'none'; }, 250);
+  }
+
+  closeBtn.addEventListener('click', closeOverlay);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeOverlay();
+  });
+
+  const canvas = document.getElementById('rank-up-confetti');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const colors = ['#22d3ee', '#2f6fed', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#facc15', '#e2e8f0'];
+  const pieces = [];
+  for (let i = 0; i < 180; i++) {
+    pieces.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      size: Math.random() * 10 + 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      speed: Math.random() * 4 + 2,
+      drift: Math.random() * 3 - 1.5,
+      spin: Math.random() * 0.25 - 0.125,
+      angle: Math.random() * Math.PI * 2
+    });
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let active = false;
+    for (const p of pieces) {
+      p.y += p.speed;
+      p.x += p.drift;
+      p.angle += p.spin;
+      if (p.y < canvas.height + 20) {
+        active = true;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+        ctx.restore();
+      }
+    }
+    frame++;
+    if (active && frame < 420) {
+      requestAnimationFrame(animate);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  animate();
+
+  window.addEventListener('resize', function() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+})();
+</script>
+{% endif %}

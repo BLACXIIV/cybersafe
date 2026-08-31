@@ -18,19 +18,19 @@
   </div>
 </div>
 
+<style>
+  .review-answer { font-size: 0.85rem; color: var(--text-secondary); }
+  .review-answer.is-perfect { color: var(--accent-green); }
+</style>
+
 <h2 style="font-size:1.05rem; margin-bottom:0.75rem;">Answer Review</h2>
 <div class="mission-list" style="margin-bottom:1.5rem;">
   {% for row in rows %}
     <div class="mission-item" style="flex-direction:column; align-items:stretch; gap:0.35rem;">
       <div class="name" style="font-weight:600;">{{ row.prompt }}</div>
-      <div style="font-size:0.85rem; color: {{ 'var(--accent-green)' if row.points == 100 else 'var(--text-secondary)' }};">
+      <div class="review-answer{% if row.points == 100 %} is-perfect{% endif %}">
         Your answer: {{ row.chosen_letter }}. {{ row.chosen_text }} ({{ row.points }} pts)
       </div>
-      {% if row.points < 100 %}
-        <div style="font-size:0.85rem; color: var(--accent-blue-light);">
-          Best answer: {{ row.best_letter }}. {{ row.best_text }}
-        </div>
-      {% endif %}
     </div>
   {% endfor %}
 </div>

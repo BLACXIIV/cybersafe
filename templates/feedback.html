@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "hero_avatar.html" import render_hero_avatar %}
 {% block title %}
   {% if answer.points == 100 %}Correct!{% elif answer.points == 0 %}Keep Trying{% else %}Feedback{% endif %} — Level {{ level.level_number }} — Cyber-S.A.F.E.
 {% endblock %}
@@ -49,6 +50,9 @@
     pointer-events: none;
     z-index: 9999;
   }
+
+  /* The rank-up celebration lives in rank_up_modal.html (shown after the
+     points are actually claimed with a voucher). */
 </style>
 
 <div class="dashboard-header">
@@ -92,18 +96,28 @@
 
   <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1.5rem;">
     {% if not is_wrong %}
-      {% if has_voucher %}
-        <a class="btn btn-primary" href="{{ url_for('levels.voucher', level_number=level.level_number, question_id=question.id) }}">View Voucher</a>
+      {% if pending_points > 0 %}
+        <a class="btn btn-primary" href="{{ url_for('levels.voucher', level_number=level.level_number, question_id=question.id) }}">
+          Use Voucher to Claim {{ pending_points }} Points
+        </a>
       {% else %}
-        <a class="btn btn-primary" href="{{ url_for('levels.voucher', level_number=level.level_number, question_id=question.id) }}">Claim Access Voucher</a>
+        {% if is_completed or not has_more %}
+          <a class="btn btn-outline" href="{{ url_for('levels.results', level_number=level.level_number) }}">See Results</a>
+        {% endif %}
+        <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Back to Missions</a>
       {% endif %}
+    {% else %}
+      {% if pending_points > 0 %}
+        <a class="btn btn-primary" href="{{ url_for('levels.voucher', level_number=level.level_number, question_id=question.id) }}">
+          Use Voucher to Claim {{ pending_points }} Points
+        </a>
+      {% elif has_more %}
+        <a class="btn btn-primary" style="display:inline-flex; align-items:center; gap:0.4rem;" href="{{ url_for('levels.play', level_number=level.level_number, skip=question.id) }}">
+          Next Question {{ lucide('arrow-right', size=16) }}
+        </a>
+      {% endif %}
+      <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Back to Missions</a>
     {% endif %}
-
-    {% if is_completed or not has_more %}
-      <a class="btn btn-outline" href="{{ url_for('levels.results', level_number=level.level_number) }}">See Results</a>
-    {% endif %}
-
-    <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Back to Missions</a>
   </div>
 </div>
 
@@ -167,4 +181,5 @@
 })();
 </script>
 {% endif %}
+
 {% endblock %}

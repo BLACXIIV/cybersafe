@@ -10,7 +10,7 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <div class="page-wrap">
-    <nav class="navbar">
+    <nav class="navbar" id="navbar">
       <div class="navbar-inner">
         <a class="brand" href="{{ url_for('main.landing') }}">
           {% if school_settings and school_settings['logo_path'] %}
@@ -18,8 +18,31 @@
           {% else %}
             <span class="brand-icon">S</span>
           {% endif %}
-          <span class="brand-text">{{ school_settings['school_name'] if school_settings else 'Cyber-S.A.F.E.' }}</span>
+          <span class="brand-copy">
+            <span class="brand-text">{{ school_settings['school_name'] if school_settings else 'Cyber-S.A.F.E.' }}</span>
+            <span class="brand-sub">Cyber-S.A.F.E.</span>
+          </span>
         </a>
+
+        {% if g.user %}
+          {% set is_admin = g.user['role'] == 'admin' %}
+          {% set nav_items = [
+            ('admin.dashboard' if is_admin else 'main.dashboard', 'Dashboard', 'shield' if is_admin else 'layout-dashboard'),
+            ('levels.index', 'Missions', 'target'),
+          ] %}
+          {% if not is_admin %}
+            {% set nav_items = nav_items + [('main.internet_access', 'Access', 'wifi')] %}
+          {% endif %}
+          <div class="nav-menu">
+            {% for endpoint, label, icon in nav_items %}
+              {% set active = request.endpoint == endpoint or (endpoint == 'levels.index' and request.endpoint and request.endpoint.startswith('levels.')) %}
+              <a class="nav-link{% if active %} is-active{% endif %}" href="{{ url_for(endpoint) }}"{% if active %} aria-current="page"{% endif %}>
+                {{ lucide(icon, size=16) }}<span class="nav-link-text">{{ label }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+
         <div class="nav-links">
           {% if g.user %}
             {% if active_voucher_flag %}
@@ -29,16 +52,27 @@
                 {% if not block_tests_when_active %}<span class="nav-pill-hint">off</span>{% endif %}
               </a>
             {% endif %}
-            <a class="btn btn-outline nav-btn" href="{{ url_for('main.dashboard') }}">Dashboard</a>
-            <a class="btn btn-outline nav-btn" href="{{ url_for('levels.index') }}">Missions</a>
-            {% if g.user['role'] == 'admin' %}<a class="btn btn-outline nav-btn" href="{{ url_for('admin.dashboard') }}">Admin</a>{% endif %}
-            <a class="btn btn-primary nav-btn" href="#" id="logout-trigger">Log Out</a>
+            <div class="nav-user">
+              <span class="nav-avatar">{{ g.user['full_name'][:1]|upper }}</span>
+              <span class="nav-user-copy">
+                <strong>{{ g.user['full_name'] }}</strong>
+                <small>{% if g.user['role'] == 'admin' %}Administrator{% else %}{{ g.user['level'] }} · {{ g.user['points'] }} pts{% endif %}</small>
+              </span>
+            </div>
+            <button class="nav-logout" type="button" id="logout-trigger" aria-label="Log out" title="Log out">
+              {{ lucide('log-out', size=16) }}<span class="nav-logout-text">Log Out</span>
+            </button>
           {% endif %}
         </div>
       </div>
     </nav>
 
     <main class="container" style="flex:1; width:100%; padding-top:1rem; padding-bottom:1rem;">
+      {% if request.endpoint not in ('main.dashboard', 'admin.dashboard', 'main.landing', 'main.hero_showcase') %}
+        <a class="btn btn-outline" href="#" onclick="history.back(); return false;" style="display:inline-flex; align-items:center; align-self:flex-start; gap:0.35rem; margin-bottom:0.75rem; font-size:0.85rem; color:var(--text-secondary);">
+          {{ lucide('arrow-left', size=16) }} Back
+        </a>
+      {% endif %}
       {% block content %}{% endblock %}
     </main>
 
@@ -72,6 +106,8 @@
       </div>
     </div>
   </div>
+
+  {% include "rank_up_modal.html" %}
 
   {% block scripts %}{% endblock %}
   <script>
@@ -138,6 +174,17 @@
     modal.addEventListener('click', function(e) {
       if (e.target === modal) closeModal();
     });
+  })();
+  </script>
+  <script>
+  (function() {
+    const navbar = document.getElementById('navbar');
+    if (!navbar) return;
+    function sync() {
+      navbar.classList.toggle('is-scrolled', window.scrollY > 4);
+    }
+    window.addEventListener('scroll', sync, { passive: true });
+    sync();
   })();
   </script>
   <script>

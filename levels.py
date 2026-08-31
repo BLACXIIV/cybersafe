@@ -3,10 +3,11 @@ import secrets
 import string
 from datetime import datetime
 
-from flask import Blueprint, render_template, redirect, url_for, request, g, flash, current_app
+from flask import Blueprint, render_template, redirect, url_for, request, g, flash, current_app, session
 
-from auth import login_required
+from auth import login_required, student_required
 from database.db import get_db
+from ranks import BADGE_ORDER, rank_info
 
 bp = Blueprint("levels", __name__, url_prefix="/levels")
 
@@ -133,6 +134,55 @@ def _has_more_questions(db, user_id, level_id):
     )
 
 
+def _pending_points(db, user_id):
+    """Return the global user points that have been recorded in level progress
+    but not yet added to users.points (i.e. waiting for a voucher connection)."""
+    progress_total = db.execute(
+        "SELECT COALESCE(SUM(total_points), 0) FROM user_level_progress WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()[0]
+    user_points = db.execute(
+        "SELECT points FROM users WHERE id = ?", (user_id,)
+    ).fetchone()["points"]
+    return max(0, progress_total - user_points)
+
+
+def _claim_pending_points(db, user_id):
+    """Add all pending points to users.points, sync the level title, and mark
+    the corresponding answers as claimed.
+
+    A rank-up is detected here (not when the question is answered) so the
+    celebration is shown once the points are actually credited to the user.
+    """
+    pending = _pending_points(db, user_id)
+
+    db.execute("UPDATE user_answers SET claimed = 1 WHERE user_id = ? AND claimed = 0", (user_id,))
+
+    if pending <= 0:
+        return 0
+
+    total_questions = db.execute("SELECT COUNT(*) AS c FROM questions").fetchone()["c"]
+    max_points = total_questions * QUESTIONS_PER_LEVEL_MAX_POINTS
+    old_points = db.execute("SELECT points FROM users WHERE id = ?", (user_id,)).fetchone()["points"]
+    old_badge, old_title, _, _, _, _ = rank_info(old_points, max_points)
+
+    db.execute("UPDATE users SET points = points + ? WHERE id = ?", (pending, user_id))
+
+    new_points = db.execute("SELECT points FROM users WHERE id = ?", (user_id,)).fetchone()["points"]
+    new_badge, new_title, _, _, _, _ = rank_info(new_points, max_points)
+    db.execute("UPDATE users SET level = ? WHERE id = ?", (new_title, user_id))
+
+    if BADGE_ORDER.get(new_badge, 0) > BADGE_ORDER.get(old_badge, 0):
+        session["rank_up"] = {
+            "old_badge": old_badge,
+            "old_title": old_title,
+            "new_badge": new_badge,
+            "new_title": new_title,
+        }
+
+    return pending
+
+
 def _question_difficulty(db, question_id):
     """Difficulty = 100 - average points earned. Higher = harder.
 
@@ -151,13 +201,15 @@ def _question_difficulty(db, question_id):
     return 100 - (avg_earned or 0)
 
 
-def _pick_next_question(db, user_id, level_id):
+def _pick_next_question(db, user_id, level_id, exclude_question_id=None):
     """Pick the next question to show.
 
     - First, show questions the user has not yet mastered (best == 0).
     - After all questions are mastered (>=25) but some are not perfect,
       retake only the non-100 questions (25/50 points) so the user can improve.
     - Once every question is 100 points, no retake is allowed.
+    - `exclude_question_id` skips the question the user just came from, as long
+      as another candidate exists (used by the "Next Question" button).
     """
     last_points = _last_answer_points(db, user_id, level_id)
 
@@ -174,6 +226,12 @@ def _pick_next_question(db, user_id, level_id):
             unmastered.append((q, difficulty))
         elif best < 100:
             retakes.append(q)
+
+    if exclude_question_id is not None:
+        if len(unmastered) > 1:
+            unmastered = [pair for pair in unmastered if pair[0]["id"] != exclude_question_id]
+        if len(retakes) > 1:
+            retakes = [q for q in retakes if q["id"] != exclude_question_id]
 
     # If there are still unmastered questions, focus on those first.
     if unmastered:
@@ -210,15 +268,18 @@ def _voucher_active(voucher_row):
 
 
 def _voucher_usable_for_new(voucher_row):
-    """Return True if the existing voucher can be kept (not used or not expired)."""
+    """Return True if the existing voucher should be kept.
+
+    We keep an existing voucher if it has never been used, or if it is
+    currently still active (used and not yet expired). If it has expired,
+    a new one must be generated.
+    """
     if voucher_row is None:
         return False
     if voucher_row["used_at"] is None:
         # Not yet used; keep the existing code.
         return True
-    if voucher_row["expires_at"] is None:
-        return False
-    return datetime.utcnow() >= datetime.strptime(voucher_row["expires_at"], "%Y-%m-%d %H:%M:%S")
+    return _voucher_active(voucher_row)
 
 
 def _has_active_voucher(db, user_id):
@@ -235,22 +296,80 @@ def _generate_voucher_code(db):
             return code
 
 
+def _ensure_voucher(db, user_id, level_id):
+    """Make sure the user has a usable voucher stored for this level.
+
+    The voucher is persisted as soon as it is earned (not when the voucher page
+    is opened), so it always shows up in the voucher history even if the user
+    leaves the feedback page without clicking "Use Voucher".
+
+    Returns (voucher_row, regenerated) where `regenerated` is True when an
+    expired voucher was replaced with a fresh code.
+    """
+    voucher_row = db.execute(
+        "SELECT * FROM vouchers WHERE user_id = ? AND level_id = ?",
+        (user_id, level_id),
+    ).fetchone()
+
+    if _voucher_usable_for_new(voucher_row):
+        return voucher_row, False
+
+    code = _generate_voucher_code(db)
+    regenerated = voucher_row is not None
+    if voucher_row is None:
+        db.execute(
+            """INSERT INTO vouchers (user_id, level_id, code)
+               VALUES (?, ?, ?)""",
+            (user_id, level_id, code),
+        )
+    else:
+        db.execute(
+            """UPDATE vouchers
+               SET code = ?, created_at = CURRENT_TIMESTAMP, used_at = NULL, expires_at = NULL
+               WHERE id = ?""",
+            (code, voucher_row["id"]),
+        )
+    db.commit()
+
+    voucher_row = db.execute(
+        "SELECT * FROM vouchers WHERE user_id = ? AND level_id = ?",
+        (user_id, level_id),
+    ).fetchone()
+    return voucher_row, regenerated
+
+
 @bp.route("/")
 @login_required
 def index():
     db = get_db()
     user_id = g.user["id"]
     all_levels = db.execute("SELECT * FROM levels ORDER BY level_number").fetchall()
+    is_admin = g.user["role"] == "admin"
 
     level_summaries = []
     for lvl in all_levels:
+        total_questions = db.execute(
+            "SELECT COUNT(*) AS c FROM questions WHERE level_id = ?", (lvl["id"],)
+        ).fetchone()["c"]
+
+        if is_admin:
+            # Admins get a read-only view of all missions; no progress needed.
+            level_summaries.append({
+                "level": lvl,
+                "status": "not_started",
+                "total_points": 0,
+                "max_points": total_questions * QUESTIONS_PER_LEVEL_MAX_POINTS,
+                "answered": 0,
+                "total_questions": total_questions,
+                "is_perfect": False,
+                "unlocked": True,
+            })
+            continue
+
         progress = db.execute(
             "SELECT * FROM user_level_progress WHERE user_id = ? AND level_id = ?",
             (user_id, lvl["id"]),
         ).fetchone()
-        total_questions = db.execute(
-            "SELECT COUNT(*) AS c FROM questions WHERE level_id = ?", (lvl["id"],)
-        ).fetchone()["c"]
         answered = _count_answered(db, user_id, lvl["id"])
 
         level_summaries.append({
@@ -267,8 +386,39 @@ def index():
     return render_template("levels.html", level_summaries=level_summaries)
 
 
-@bp.route("/<int:level_number>/play")
+@bp.route("/<int:level_number>/view")
 @login_required
+def view(level_number):
+    """Read-only preview of a level's questions, choices, correct answers, and
+    explanations. Only admins can access it; students are sent to the play page."""
+    if g.user["role"] != "admin":
+        return redirect(url_for("levels.play", level_number=level_number))
+
+    db = get_db()
+    lvl = db.execute("SELECT * FROM levels WHERE level_number = ?", (level_number,)).fetchone()
+    if lvl is None:
+        flash("That level doesn't exist.", "error")
+        return redirect(url_for("levels.index"))
+
+    questions = db.execute(
+        "SELECT * FROM questions WHERE level_id = ? ORDER BY question_number",
+        (lvl["id"],),
+    ).fetchall()
+
+    items = []
+    for q in questions:
+        choices = db.execute(
+            "SELECT * FROM choices WHERE question_id = ? ORDER BY letter",
+            (q["id"],),
+        ).fetchall()
+        correct = next((c for c in choices if c["points"] == 100), None)
+        items.append({"question": q, "choices": choices, "correct": correct})
+
+    return render_template("level_view.html", level=lvl, items=items)
+
+
+@bp.route("/<int:level_number>/play")
+@student_required
 def play(level_number):
     db = get_db()
     user_id = g.user["id"]
@@ -286,9 +436,15 @@ def play(level_number):
         flash("You have an active internet connection. Wait for it to expire before taking another test.", "error")
         return redirect(url_for("main.internet_access"))
 
+    if _pending_points(db, user_id) > 0:
+        flash("You have unclaimed points. Use a voucher to connect and claim them before taking another test.", "error")
+        return redirect(url_for("main.internet_access"))
+
     _get_or_create_progress(db, user_id, lvl["id"])
 
-    next_question = _pick_next_question(db, user_id, lvl["id"])
+    next_question = _pick_next_question(
+        db, user_id, lvl["id"], exclude_question_id=request.args.get("skip", type=int)
+    )
 
     if next_question is None:
         # All questions are mastered at 100 points, or the level is empty.
@@ -308,13 +464,17 @@ def play(level_number):
 
 
 @bp.route("/<int:level_number>/answer", methods=("POST",))
-@login_required
+@student_required
 def answer(level_number):
     db = get_db()
     user_id = g.user["id"]
 
     if current_app.config.get("BLOCK_TESTS_WHEN_ACTIVE") and _has_active_voucher(db, user_id):
         flash("You have an active internet connection. Wait for it to expire before taking another test.", "error")
+        return redirect(url_for("main.internet_access"))
+
+    if _pending_points(db, user_id) > 0:
+        flash("You have unclaimed points. Use a voucher to connect and claim them before taking another test.", "error")
         return redirect(url_for("main.internet_access"))
 
     lvl = db.execute("SELECT * FROM levels WHERE level_number = ?", (level_number,)).fetchone()
@@ -340,29 +500,36 @@ def answer(level_number):
     prev_best = _question_best_points(db, user_id, question_id)
 
     db.execute(
-        """INSERT INTO user_answers (user_id, question_id, choice_id, points_earned)
-           VALUES (?, ?, ?, ?)""",
+        """INSERT INTO user_answers (user_id, question_id, choice_id, points_earned, claimed)
+           VALUES (?, ?, ?, ?, 0)""",
         (user_id, question_id, choice_id, choice["points"]),
     )
 
     point_delta = max(0, choice["points"] - prev_best)
     if point_delta > 0:
+        # Update level progress immediately, but keep global user points as
+        # "pending" until the voucher is actually used to connect.
         db.execute(
             """UPDATE user_level_progress SET total_points = total_points + ?
                WHERE user_id = ? AND level_id = ?""",
             (point_delta, user_id, lvl["id"]),
         )
-        db.execute(
-            "UPDATE users SET points = points + ? WHERE id = ?",
-            (point_delta, user_id),
-        )
+        # The rank-up celebration is not triggered here: the points are only
+        # pending until a voucher is used, so it fires in _claim_pending_points.
+
+    # Persist the voucher right away when the answer actually leaves points
+    # pending, so it is listed in the voucher history even if the user never
+    # opens the voucher page.
+    if point_delta > 0:
+        _ensure_voucher(db, user_id, lvl["id"])
+
     db.commit()
 
     return redirect(url_for("levels.feedback", level_number=level_number, question_id=question_id))
 
 
 @bp.route("/<int:level_number>/feedback/<int:question_id>")
-@login_required
+@student_required
 def feedback(level_number, question_id):
     db = get_db()
     user_id = g.user["id"]
@@ -409,6 +576,15 @@ def feedback(level_number, question_id):
 
     has_voucher = _has_voucher(db, user_id, lvl["id"])
 
+    # Points are pending until a voucher is used to connect. Show how many
+    # global points are on the line for this answer.
+    pending_points = db.execute(
+        "SELECT COALESCE(SUM(total_points), 0) FROM user_level_progress WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()[0] - g.user["points"]
+    if pending_points < 0:
+        pending_points = 0
+
     return render_template(
         "feedback.html",
         level=lvl,
@@ -419,11 +595,12 @@ def feedback(level_number, question_id):
         is_completed=is_completed,
         is_perfect=is_perfect,
         has_voucher=has_voucher,
+        pending_points=pending_points,
     )
 
 
 @bp.route("/<int:level_number>/voucher")
-@login_required
+@student_required
 def voucher(level_number):
     db = get_db()
     user_id = g.user["id"]
@@ -504,31 +681,9 @@ def voucher(level_number):
         (question_id,),
     ).fetchone()
 
-    voucher_row = db.execute(
-        "SELECT * FROM vouchers WHERE user_id = ? AND level_id = ?",
-        (user_id, lvl["id"]),
-    ).fetchone()
-
-    if not _voucher_usable_for_new(voucher_row):
-        code = _generate_voucher_code(db)
-        if voucher_row is None:
-            db.execute(
-                """INSERT INTO vouchers (user_id, level_id, code)
-                   VALUES (?, ?, ?)""",
-                (user_id, lvl["id"], code),
-            )
-        else:
-            db.execute(
-                """UPDATE vouchers
-                   SET code = ?, created_at = CURRENT_TIMESTAMP, used_at = NULL, expires_at = NULL
-                   WHERE id = ?""",
-                (code, voucher_row["id"]),
-            )
-        db.commit()
-        voucher_row = db.execute(
-            "SELECT * FROM vouchers WHERE user_id = ? AND level_id = ?",
-            (user_id, lvl["id"]),
-        ).fetchone()
+    voucher_row, regenerated = _ensure_voucher(db, user_id, lvl["id"])
+    if regenerated:
+        flash("Your old voucher expired. A new voucher code has been generated.", "info")
 
     total_questions = db.execute(
         "SELECT COUNT(*) AS c FROM questions WHERE level_id = ?", (lvl["id"],)
@@ -551,7 +706,7 @@ def voucher(level_number):
 
 
 @bp.route("/<int:level_number>/connect", methods=("GET", "POST"))
-@login_required
+@student_required
 def connect(level_number):
     db = get_db()
     user_id = g.user["id"]
@@ -570,35 +725,42 @@ def connect(level_number):
         flash("Earn a voucher for this level first.", "error")
         return redirect(url_for("levels.play", level_number=level_number))
 
-    already_used = False
     if request.method == "POST":
+        # Always redirect after a POST so a refresh or Back does not ask the
+        # browser to resubmit the form (Confirm Form Resubmission).
+        already_used = False
         pasted = request.form.get("voucher_code", "").strip().upper()
-        if pasted == voucher_row["code"].upper():
-            if voucher_row["used_at"] is not None:
-                already_used = True
-                if _voucher_active(voucher_row):
-                    flash("This voucher is already connected and active.", "info")
-                else:
-                    flash("This voucher has expired. Take the test again for a new one.", "error")
+        if pasted != voucher_row["code"].upper():
+            flash("That code does not match your voucher.", "error")
+        elif voucher_row["used_at"] is not None:
+            already_used = True
+            if _voucher_active(voucher_row):
+                flash("This voucher is already connected and active.", "info")
             else:
-                db.execute(
-                    """UPDATE vouchers
-                       SET used_at = CURRENT_TIMESTAMP,
-                           expires_at = datetime('now', '+5 hours')
-                       WHERE id = ?""",
-                    (voucher_row["id"],),
-                )
-                db.commit()
-                voucher_row = db.execute(
-                    "SELECT * FROM vouchers WHERE user_id = ? AND level_id = ?",
-                    (user_id, lvl["id"]),
-                ).fetchone()
-            return render_template(
-                "connect.html", level=lvl, voucher=voucher_row,
-                connected=_voucher_active(voucher_row), is_expired=False,
-                already_used=already_used,
+                flash("This voucher has expired. Take the test again for a new one.", "error")
+        else:
+            db.execute(
+                """UPDATE vouchers
+                   SET used_at = CURRENT_TIMESTAMP,
+                       expires_at = datetime('now', '+5 hours')
+                   WHERE id = ?""",
+                (voucher_row["id"],),
             )
-        flash("That code does not match your voucher.", "error")
+            # Connecting to the internet is when pending points become real.
+            claimed = _claim_pending_points(db, user_id)
+            db.commit()
+            if claimed > 0:
+                flash(f"Connected! You claimed {claimed} points.", "success")
+            else:
+                flash("Connected to the internet.", "success")
+
+        return redirect(
+            url_for(
+                "levels.connect",
+                level_number=level_number,
+                already=1 if already_used else None,
+            )
+        )
 
     is_expired = voucher_row["used_at"] is not None and not _voucher_active(voucher_row)
     return render_template(
@@ -607,12 +769,12 @@ def connect(level_number):
         voucher=voucher_row,
         connected=_voucher_active(voucher_row),
         is_expired=is_expired,
-        already_used=False,
+        already_used=request.args.get("already") == "1",
     )
 
 
 @bp.route("/<int:level_number>/results")
-@login_required
+@student_required
 def results(level_number):
     db = get_db()
     user_id = g.user["id"]

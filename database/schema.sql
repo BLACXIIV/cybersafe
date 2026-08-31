@@ -58,6 +58,7 @@ CREATE TABLE user_answers (
     question_id   INTEGER NOT NULL REFERENCES questions(id),
     choice_id     INTEGER NOT NULL REFERENCES choices(id),
     points_earned INTEGER NOT NULL,
+    claimed       INTEGER NOT NULL DEFAULT 0,  -- 1 once this answer's points are added to users.points
     answered_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

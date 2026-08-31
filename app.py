@@ -1,4 +1,4 @@
-from flask import Flask, g
+from flask import Flask, g, session
 from markupsafe import Markup
 
 from config import Config
@@ -8,6 +8,11 @@ from database.db import register_app, init_db, ensure_admin_data, get_db
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    if app.debug:
+        # Prevent the browser from caching templates and static assets during development.
+        app.config["TEMPLATES_AUTO_RELOAD"] = True
+        app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
     register_app(app)  # wires up db.close on teardown + `flask init-db` command
 
@@ -27,6 +32,12 @@ def create_app():
             db = get_db()
             status["active_voucher_flag"] = _levels._has_active_voucher(db, g.user["id"])
         return status
+
+    @app.context_processor
+    def inject_rank_up():
+        # Set when pending points are claimed; shown once on the next page the
+        # user lands on (base.html includes the celebration modal).
+        return {"rank_up": session.pop("rank_up", None)}
 
     from lucide import lucide_icon
 

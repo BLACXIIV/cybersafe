@@ -48,14 +48,6 @@
 
   <div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
     <a class="btn btn-primary" href="{{ url_for('levels.connect', level_number=level.level_number) }}">Next</a>
-    {% if has_more %}
-      <a class="btn btn-outline" href="{{ url_for('levels.play', level_number=level.level_number) }}">Next Question</a>
-    {% endif %}
-    {% if is_completed or not has_more %}
-      <a class="btn btn-outline" href="{{ url_for('levels.results', level_number=level.level_number) }}">See Results</a>
-    {% endif %}
-    <a class="btn btn-outline" href="{{ url_for('levels.index') }}">Back to Missions</a>
-    <a class="btn btn-outline" href="{{ url_for('main.dashboard') }}">Dashboard</a>
   </div>
 </div>
 

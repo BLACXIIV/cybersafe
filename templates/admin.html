@@ -46,8 +46,29 @@
         <label class="admin-label" for="school_name">School name</label>
         <input class="admin-input" id="school_name" name="school_name" value="{{ settings['school_name'] }}" required>
         <label class="admin-label" for="school_logo">School logo</label>
-        <input class="admin-input admin-file" id="school_logo" name="school_logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
-        {% if settings['logo_path'] %}<img class="school-logo-preview" src="{{ url_for('static', filename=settings['logo_path']) }}" alt="School logo">{% endif %}
+        <div class="logo-upload">
+          <input class="logo-file-input" id="school_logo" name="school_logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+          <label class="logo-dropzone" for="school_logo" id="logo_dropzone">
+            <span class="logo-dropzone-icon">{{ lucide('upload', size=28) }}</span>
+            <span class="logo-dropzone-title">Drop logo here or click to browse</span>
+            <span class="logo-dropzone-hint">PNG, JPG, WEBP, GIF</span>
+          </label>
+
+          <div class="logo-preview-row">
+            <div class="logo-preview-frame">
+              <img id="logo_preview_img"
+                   class="school-logo-preview{% if settings['logo_path'] %} is-visible{% endif %}"
+                   {% if settings['logo_path'] %}src="{{ url_for('static', filename=settings['logo_path']) }}"{% endif %}
+                   alt="School logo preview">
+              <span id="logo_preview_placeholder" class="logo-preview-placeholder{% if settings['logo_path'] %} is-hidden{% endif %}">{{ lucide('image', size=24) }}</span>
+            </div>
+            <div class="logo-preview-meta">
+              <span class="logo-preview-label">Selected file</span>
+              <span id="logo_file_name" class="logo-file-name">{{ settings['logo_path'].split('/')[-1] if settings['logo_path'] else 'No file chosen' }}</span>
+            </div>
+          </div>
+        </div>
+
         <button class="btn btn-primary" type="submit">Save branding</button>
       </form>
     </section>
@@ -82,11 +103,58 @@
     </section>
   </div>
 
+  <section class="admin-panel mission-bank-panel">
+    <div class="admin-panel-heading">
+      <h2>Mission bank</h2>
+      <span>Read-only · {{ total_questions }} question{{ 's' if total_questions != 1 else '' }}</span>
+    </div>
+    <p class="admin-muted">Reference copy of every mission question with its correct answer and explanation.</p>
+    <div class="mission-bank">
+      {% for group in mission_levels %}
+        <details class="mission-bank-level">
+          <summary class="mission-bank-summary">
+            <span class="mission-bank-level-name">Level {{ group.level['level_number'] }} · {{ group.level['name'] }}</span>
+            <span class="mission-bank-count">{{ group['items']|length }} question{{ 's' if group['items']|length != 1 else '' }}</span>
+            <span class="mission-bank-chevron">{{ lucide('chevron-down', size=16) }}</span>
+          </summary>
+          {% if group.level['focus'] %}<p class="mission-bank-focus">{{ group.level['focus'] }}</p>{% endif %}
+          <div class="mission-bank-questions">
+            {% for item in group['items'] %}
+              <article class="mission-bank-question">
+                <p class="mission-bank-prompt"><strong>{{ item.question['question_number'] }}.</strong> {{ item.question['prompt'] }}</p>
+                <ul class="mission-bank-choices">
+                  {% for choice in item['choices'] %}
+                    <li class="mission-bank-choice{% if choice['points'] == 100 %} is-correct{% endif %}">
+                      <strong>{{ choice['letter'] }}.</strong>
+                      <span>{{ choice['choice_text'] }}</span>
+                      <em>{{ choice['points'] }} pts</em>
+                    </li>
+                  {% endfor %}
+                </ul>
+                {% if item.correct %}
+                  <p class="mission-bank-answer">{{ lucide('circle-check', size=14) }} Answer: {{ item.correct['letter'] }}. {{ item.correct['choice_text'] }}</p>
+                {% endif %}
+                {% if item.question['explanation'] %}
+                  <p class="mission-bank-explanation"><strong>Explanation:</strong> {{ item.question['explanation'] }}</p>
+                {% endif %}
+              </article>
+            {% else %}
+              <p class="admin-muted">No questions in this mission yet.</p>
+            {% endfor %}
+          </div>
+        </details>
+      {% else %}
+        <p class="admin-muted">No missions have been seeded yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+
   <section class="admin-panel ranking-panel">
     <div class="admin-panel-heading">
       <h2>Student rankings</h2>
-      <form method="get" class="badge-filter" action="{{ url_for('admin.dashboard') }}">
-        <select class="admin-input" name="badge" onchange="this.form.submit()">
+      <form method="get" id="ranking_filters" class="ranking-filters" action="{{ url_for('admin.dashboard') }}">
+        <input type="search" class="admin-input ranking-search" name="q" value="{{ q or '' }}" placeholder="Search by name..." aria-label="Search students" autocomplete="off">
+        <select class="admin-input ranking-select" name="badge">
           <option value="" {% if not badge_filter %}selected{% endif %}>All badges</option>
           {% for badge, title in badges.items() %}
             <option value="{{ badge }}" {% if badge_filter == badge %}selected{% endif %}>{{ title }} ({{ badge }})</option>
@@ -94,30 +162,52 @@
         </select>
       </form>
     </div>
-    {% if rankings %}
-      <div class="ranking-list">
-        {% for student in rankings %}
-          <div class="ranking-row">
-            <strong class="ranking-position">{{ loop.index }}</strong>
-            <div class="ranking-name">
-              <strong>{{ student['full_name'] }}{% if not student['is_active'] %} <span class="suspended-tag">suspended</span>{% endif %}</strong>
-              <small>{{ student['grade_section'] or 'No section' }} · {{ student['current_title'] }}</small>
+    <div id="ranking_results">
+      {% if rankings %}
+        <div class="ranking-list">
+          {% for student in rankings %}
+            <div class="ranking-row">
+              <strong class="ranking-position">{{ pagination.start_rank + loop.index }}</strong>
+              <div class="ranking-name">
+                <strong>{{ student['full_name'] }}{% if not student['is_active'] %} <span class="suspended-tag">suspended</span>{% endif %}</strong>
+                <small>{{ student['grade_section'] or 'No section' }} · {{ student['current_title'] }}</small>
+              </div>
+              <div class="ranking-stats">
+                <strong>{{ student['points'] }} <small>pts</small></strong>
+                <span class="ranking-badge badge-{{ student['current_badge']|lower }}">{{ student['current_badge'] }}</span>
+              </div>
+              <form method="post" class="ranking-toggle">
+                <input type="hidden" name="action" value="toggle_user">
+                <input type="hidden" name="user_id" value="{{ student['id'] }}">
+                <button type="submit" class="btn btn-sm {% if student['is_active'] %}btn-danger{% else %}btn-success{% endif %}">
+                  {% if student['is_active'] %}Suspend{% else %}Restore{% endif %}
+                </button>
+              </form>
             </div>
-            <div class="ranking-stats">
-              <strong>{{ student['points'] }} <small>pts</small></strong>
-              <span class="ranking-badge badge-{{ student['current_badge']|lower }}">{{ student['current_badge'] }}</span>
-            </div>
-            <form method="post" class="ranking-toggle">
-              <input type="hidden" name="action" value="toggle_user">
-              <input type="hidden" name="user_id" value="{{ student['id'] }}">
-              <button type="submit" class="btn btn-sm {% if student['is_active'] %}btn-danger{% else %}btn-success{% endif %}">
-                {% if student['is_active'] %}Suspend{% else %}Restore{% endif %}
-              </button>
-            </form>
+          {% endfor %}
+        </div>
+
+        {% if pagination.total_pages > 1 %}
+          <div class="ranking-pagination">
+            {% if pagination.has_prev %}
+              <a class="btn btn-sm btn-outline" href="{{ pagination.prev_url }}">Previous</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline disabled">Previous</span>
+            {% endif %}
+            <span class="ranking-page-info">Page {{ pagination.page }} of {{ pagination.total_pages }} · {{ pagination.total }} student{{ 's' if pagination.total != 1 else '' }}</span>
+            {% if pagination.has_next %}
+              <a class="btn btn-sm btn-outline" href="{{ pagination.next_url }}">Next</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline disabled">Next</span>
+            {% endif %}
           </div>
-        {% endfor %}
-      </div>
-    {% else %}<p class="admin-muted">Student rankings will appear after students register.</p>{% endif %}
+        {% endif %}
+      {% else %}
+        <p class="admin-muted">
+          {% if q or badge_filter %}No students match the current filters.{% else %}Student rankings will appear after students register.{% endif %}
+        </p>
+      {% endif %}
+    </div>
   </section>
 </section>
 {% endblock %}
@@ -186,6 +276,130 @@
   showcase.addEventListener('touchstart', function() { isPaused = true; stopAuto(); }, { passive: true });
   showcase.addEventListener('touchend', function() { isPaused = false; startAuto(); });
   startAuto();
+})();
+
+(function() {
+  const input = document.getElementById('school_logo');
+  const dropzone = document.getElementById('logo_dropzone');
+  const previewImg = document.getElementById('logo_preview_img');
+  const placeholder = document.getElementById('logo_preview_placeholder');
+  const fileName = document.getElementById('logo_file_name');
+
+  if (!input || !dropzone || !previewImg || !placeholder || !fileName) return;
+
+  function updatePreview(file) {
+    if (!file) return;
+    fileName.textContent = file.name;
+    if (file.type.startsWith('image/')) {
+      previewImg.src = URL.createObjectURL(file);
+      previewImg.classList.add('is-visible');
+      placeholder.classList.add('is-hidden');
+    }
+  }
+
+  input.addEventListener('change', function() {
+    if (input.files && input.files[0]) {
+      updatePreview(input.files[0]);
+    }
+  });
+
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(function(evt) {
+    dropzone.addEventListener(evt, function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  });
+
+  ['dragenter', 'dragover'].forEach(function(evt) {
+    dropzone.addEventListener(evt, function() { dropzone.classList.add('dragover'); });
+  });
+
+  ['dragleave', 'drop'].forEach(function(evt) {
+    dropzone.addEventListener(evt, function(e) {
+      if (evt === 'dragleave' && dropzone.contains(e.relatedTarget)) return;
+      dropzone.classList.remove('dragover');
+    });
+  });
+
+  dropzone.addEventListener('drop', function(e) {
+    const files = e.dataTransfer.files;
+    if (files && files[0]) {
+      const dt = new DataTransfer();
+      dt.items.add(files[0]);
+      input.files = dt.files;
+      updatePreview(files[0]);
+    }
+  });
+})();
+</script>
+
+<script>
+(function() {
+  const form = document.getElementById('ranking_filters');
+  const results = document.getElementById('ranking_results');
+  if (!form || !results) return;
+
+  const qInput = form.querySelector('input[name="q"]');
+  const badgeSelect = form.querySelector('select[name="badge"]');
+  let debounceTimer = null;
+  let isSearching = false;
+
+  function updateUrl(params) {
+    const query = params.toString();
+    const cleanUrl = form.action + (query ? '?' + query : '');
+    history.replaceState({ path: cleanUrl }, '', cleanUrl);
+  }
+
+  function doSearch() {
+    if (isSearching) return;
+    isSearching = true;
+
+    const params = new URLSearchParams(new FormData(form));
+    if (!params.get('q')) params.delete('q');
+    if (!params.get('badge')) params.delete('badge');
+
+    const query = params.toString();
+    const url = form.action + (query ? '?' + query : '');
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(response) {
+        if (!response.ok) throw new Error('Search failed');
+        return response.text();
+      })
+      .then(function(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newResults = doc.getElementById('ranking_results');
+        if (newResults) {
+          results.innerHTML = newResults.innerHTML;
+        }
+        updateUrl(params);
+      })
+      .catch(function(err) {
+        console.error('Live search error:', err);
+      })
+      .finally(function() {
+        isSearching = false;
+      });
+  }
+
+  function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 250);
+  }
+
+  if (qInput) {
+    qInput.addEventListener('input', scheduleSearch);
+  }
+
+  if (badgeSelect) {
+    badgeSelect.addEventListener('change', doSearch);
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    doSearch();
+  });
 })();
 </script>
 {% endblock %}

@@ -100,9 +100,28 @@ def dashboard():
         "SELECT id, grade_id, name FROM sections ORDER BY grade_id, name COLLATE NOCASE"
     ).fetchall()
 
+    mission_levels = []
+    for lvl in db.execute("SELECT * FROM levels ORDER BY level_number").fetchall():
+        items = []
+        for question in db.execute(
+            "SELECT * FROM questions WHERE level_id = ? ORDER BY question_number", (lvl["id"],)
+        ).fetchall():
+            choices = db.execute(
+                "SELECT * FROM choices WHERE question_id = ? ORDER BY letter", (question["id"],)
+            ).fetchall()
+            items.append({
+                "question": question,
+                "choices": choices,
+                "correct": next((c for c in choices if c["points"] == 100), None),
+            })
+        mission_levels.append({"level": lvl, "items": items})
+
     total_questions = db.execute("SELECT COUNT(*) AS c FROM questions").fetchone()["c"]
     max_points = total_questions * 100
     badge_filter = request.args.get("badge", "")
+    q = request.args.get("q", "").strip().lower()
+    page = request.args.get("page", 1, type=int)
+    per_page = 10
 
     students = db.execute(
         """SELECT id, full_name, username, grade_section, points, level, is_active
@@ -123,12 +142,55 @@ def dashboard():
     if badge_filter in BADGE_ORDER:
         rankings = [r for r in rankings if r["current_badge"] == badge_filter]
 
+    if q:
+        rankings = [
+            r for r in rankings
+            if q in r["full_name"].lower()
+            or q in r["username"].lower()
+            or (r["grade_section"] and q in r["grade_section"].lower())
+            or q in r["current_title"].lower()
+        ]
+
+    total = len(rankings)
+    total_pages = (total + per_page - 1) // per_page if total else 1
+    page = max(1, page)
+    if page > total_pages and total:
+        page = total_pages
+    start = (page - 1) * per_page
+    paginated_rankings = rankings[start : start + per_page]
+
+    def page_url(page_num):
+        args = {}
+        if badge_filter:
+            args["badge"] = badge_filter
+        if q:
+            args["q"] = q
+        if page_num != 1:
+            args["page"] = page_num
+        return url_for("admin.dashboard", **args)
+
+    pagination = {
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": total_pages,
+        "has_prev": page > 1,
+        "has_next": page < total_pages,
+        "prev_url": page_url(page - 1) if page > 1 else None,
+        "next_url": page_url(page + 1) if page < total_pages else None,
+        "start_rank": start,
+    }
+
     return render_template(
         "admin.html",
         settings=settings,
         grades=grades,
         sections=sections,
-        rankings=rankings,
+        mission_levels=mission_levels,
+        total_questions=total_questions,
+        rankings=paginated_rankings,
+        pagination=pagination,
         badges=BADGE_TITLES,
         badge_filter=badge_filter,
+        q=q,
     )

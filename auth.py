@@ -8,6 +8,7 @@ from flask import (
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from database.db import get_db
+from security import validate_password, describe_problems
 
 bp = Blueprint("auth", __name__)
 
@@ -20,6 +21,21 @@ def login_required(view):
             session.clear()
             flash("Please log in to continue.", "error")
             return redirect(url_for("auth.login"))
+        return view(*args, **kwargs)
+    return wrapped_view
+
+
+def student_required(view):
+    """Decorator: redirect to admin dashboard if the logged-in user is an admin.
+
+    Use on student-only routes (dashboard, exams, internet access, etc.).
+    """
+    @wraps(view)
+    @login_required
+    def wrapped_view(*args, **kwargs):
+        if g.user["role"] == "admin":
+            flash("This area is for students only.", "error")
+            return redirect(url_for("admin.dashboard"))
         return view(*args, **kwargs)
     return wrapped_view
 
@@ -47,10 +63,13 @@ def signup():
             error = "A valid email is required."
         elif not grade_id or not section_id:
             error = "Select a grade and section."
-        elif len(password) < 8:
-            error = "Password must be at least 8 characters long."
         elif password != confirm_password:
             error = "Passwords do not match."
+        else:
+            # The browser shows the same rules live; this is the authoritative check.
+            error = describe_problems(
+                validate_password(password, personal_values=(full_name, username, email))
+            )
 
         if error is None:
             db = get_db()
