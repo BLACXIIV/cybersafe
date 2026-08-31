@@ -107,6 +107,27 @@
     </div>
   </div>
 
+  {# Dashboard only (main.landing renders the dashboard for signed-in students). #}
+  {% if g.user and g.user['role'] != 'admin' and request.endpoint in ('main.dashboard', 'main.landing') %}
+    <button type="button" class="lb-fab" id="leaderboard-fab" aria-label="Open leaderboard" title="Leaderboard">
+      {{ lucide('trophy', size=22) }}
+    </button>
+
+    <div class="lb-overlay" id="leaderboard-overlay" style="display:none;" aria-hidden="true">
+      <div class="lb-panel" role="dialog" aria-modal="true" aria-labelledby="leaderboard-title">
+        <div class="lb-panel-head">
+          <h2 id="leaderboard-title">{{ lucide('trophy', size=18) }} Leaderboard</h2>
+          <button type="button" class="lb-close" id="leaderboard-close" aria-label="Close leaderboard">
+            {{ lucide('x', size=18) }}
+          </button>
+        </div>
+        <div class="lb-panel-body" id="leaderboard-body">
+          <p class="lb-empty">Loading…</p>
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
   {% include "rank_up_modal.html" %}
 
   {% block scripts %}{% endblock %}
@@ -173,6 +194,135 @@
     cancel.addEventListener('click', closeModal);
     modal.addEventListener('click', function(e) {
       if (e.target === modal) closeModal();
+    });
+  })();
+  </script>
+  <script>
+  (function() {
+    const fab = document.getElementById('leaderboard-fab');
+    const overlay = document.getElementById('leaderboard-overlay');
+    const body = document.getElementById('leaderboard-body');
+    const closeBtn = document.getElementById('leaderboard-close');
+    if (!fab || !overlay || !body || !closeBtn) return;
+
+    const endpoint = '{{ url_for("main.leaderboard") }}';
+    const panel = overlay.querySelector('.lb-panel');
+    const canAnimate = typeof body.animate === 'function'
+      && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const DURATION = 240;
+    const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+    let scope = 'section';
+    let badge = '';
+    let loading = false;
+    let heightAnim = null;
+
+    // Swap the fragment while easing the panel between its old and new height,
+    // so filtering a shorter/longer list grows or shrinks it smoothly.
+    function swap(html, animateHeight) {
+      if (!canAnimate || !animateHeight) {
+        body.innerHTML = html;
+        return;
+      }
+      const from = body.offsetHeight;
+      if (heightAnim) { heightAnim.cancel(); heightAnim = null; }
+      body.innerHTML = html;
+      const to = body.offsetHeight;
+      if (Math.abs(to - from) > 2) {
+        heightAnim = body.animate(
+          { height: [from + 'px', to + 'px'] },
+          { duration: DURATION, easing: EASING }
+        );
+        heightAnim.onfinish = heightAnim.oncancel = function() { heightAnim = null; };
+      }
+      body.animate({ opacity: [0.35, 1] }, { duration: DURATION, easing: 'ease-out' });
+    }
+
+    function load(animateHeight) {
+      if (loading) return;
+      loading = true;
+      const params = new URLSearchParams({ scope: scope });
+      if (badge) params.set('badge', badge);
+      fetch(endpoint + '?' + params.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(res) {
+          if (!res.ok) throw new Error('Leaderboard request failed');
+          return res.text();
+        })
+        .then(function(html) { swap(html, animateHeight); })
+        .catch(function() { swap('<p class="lb-empty">Could not load the leaderboard.</p>', animateHeight); })
+        .finally(function() { loading = false; });
+    }
+
+    function open() {
+      fab.classList.remove('is-hidden');
+      overlay.classList.remove('is-closing');
+      overlay.style.display = 'flex';
+      overlay.setAttribute('aria-hidden', 'false');
+      load(false);
+    }
+
+    function finishClose() {
+      overlay.style.display = 'none';
+      overlay.classList.remove('is-closing');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    function close() {
+      if (overlay.classList.contains('is-closing')) return;
+      if (!canAnimate || !panel) {
+        finishClose();
+        return;
+      }
+      // Shrink back down toward the button, then hide.
+      overlay.classList.add('is-closing');
+      let done = false;
+      const end = function() {
+        if (done) return;
+        done = true;
+        finishClose();
+      };
+      panel.addEventListener('animationend', end, { once: true });
+      setTimeout(end, 400);
+    }
+
+    fab.addEventListener('click', open);
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) close();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && overlay.style.display === 'flex') close();
+    });
+
+    // Hide the button while scrolling down, bring it back on scroll up.
+    (function() {
+      let lastY = window.scrollY;
+      let ticking = false;
+
+      function sync() {
+        const y = window.scrollY;
+        const delta = y - lastY;
+        if (Math.abs(delta) > 6) {
+          // Stays visible at the very top; otherwise direction decides.
+          fab.classList.toggle('is-hidden', delta > 0 && y >= 80);
+          lastY = y;
+        }
+        ticking = false;
+      }
+
+      window.addEventListener('scroll', function() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(sync);
+      }, { passive: true });
+    })();
+
+    // Filter chips are re-rendered with the fragment, so delegate.
+    body.addEventListener('click', function(e) {
+      const chip = e.target.closest('.lb-chip');
+      if (!chip) return;
+      if (chip.dataset.scope !== undefined) scope = chip.dataset.scope;
+      else if (chip.dataset.badge !== undefined) badge = chip.dataset.badge;
+      load(true);
     });
   })();
   </script>

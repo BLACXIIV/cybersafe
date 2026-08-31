@@ -262,3 +262,77 @@ def internet_access_toggle():
     else:
         flash("Internet access turned on.", "success")
     return redirect(url_for("main.internet_access"))
+
+
+def _grade_of(grade_section):
+    """Grade level part of a "<grade> - <section>" label (e.g. "11 - De-Vries")."""
+    if not grade_section:
+        return ""
+    return grade_section.split(" - ")[0].strip()
+
+
+@bp.route("/leaderboard")
+@student_required
+def leaderboard():
+    """Ranked students, scoped to the viewer's section / grade / everyone.
+
+    Rendered as a fragment so the floating leaderboard panel can refresh it
+    without a page reload.
+    """
+    db = get_db()
+    scope = request.args.get("scope", "section")
+    if scope not in ("section", "grade", "overall"):
+        scope = "section"
+    badge_filter = request.args.get("badge", "")
+    if badge_filter not in BADGE_TITLES:
+        badge_filter = ""
+
+    my_section = g.user["grade_section"] or ""
+    my_grade = _grade_of(my_section)
+
+    if scope == "section" and my_section:
+        students = db.execute(
+            """SELECT id, full_name, grade_section, points FROM users
+               WHERE role = 'student' AND is_active = 1 AND grade_section = ?""",
+            (my_section,),
+        ).fetchall()
+    else:
+        students = db.execute(
+            """SELECT id, full_name, grade_section, points FROM users
+               WHERE role = 'student' AND is_active = 1"""
+        ).fetchall()
+        if scope == "grade" and my_grade:
+            students = [s for s in students if _grade_of(s["grade_section"]) == my_grade]
+
+    total_questions = db.execute("SELECT COUNT(*) AS c FROM questions").fetchone()["c"]
+    max_points = total_questions * 100
+
+    rows = []
+    for s in students:
+        badge, title, _, _, _, _ = _rank_info(s["points"], max_points)
+        rows.append({
+            "id": s["id"],
+            "full_name": s["full_name"],
+            "grade_section": s["grade_section"],
+            "points": s["points"],
+            "badge": badge,
+            "title": title,
+        })
+
+    rows.sort(key=lambda r: (-r["points"], r["full_name"].lower()))
+    # Positions are assigned before the badge filter so a filtered view still
+    # shows each student's real standing.
+    for i, row in enumerate(rows, start=1):
+        row["position"] = i
+    if badge_filter:
+        rows = [r for r in rows if r["badge"] == badge_filter]
+
+    return render_template(
+        "leaderboard_panel.html",
+        rows=rows,
+        scope=scope,
+        badge_filter=badge_filter,
+        badges=BADGE_TITLES,
+        my_section=my_section,
+        my_grade=my_grade,
+    )

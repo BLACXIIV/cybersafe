@@ -1,0 +1,53 @@
+{% set scopes = [
+  ('section', 'My Section', my_section or 'No section yet'),
+  ('grade', 'My Grade', ('Grade ' ~ my_grade) if my_grade else 'No grade yet'),
+  ('overall', 'Overall', 'All students')
+] %}
+
+<div class="lb-filters">
+  <div class="lb-chip-row" role="group" aria-label="Leaderboard scope">
+    {% for value, label, hint in scopes %}
+      <button type="button" class="lb-chip{% if scope == value %} is-active{% endif %}"
+              data-scope="{{ value }}" title="{{ hint }}">{{ label }}</button>
+    {% endfor %}
+  </div>
+  <div class="lb-chip-row" role="group" aria-label="Filter by rank">
+    <button type="button" class="lb-chip lb-chip-sm{% if not badge_filter %} is-active{% endif %}" data-badge="">All ranks</button>
+    {% for badge, title in badges.items() %}
+      <button type="button" class="lb-chip lb-chip-sm badge-{{ badge|lower }}{% if badge_filter == badge %} is-active{% endif %}"
+              data-badge="{{ badge }}" title="{{ title }}">{{ badge }}</button>
+    {% endfor %}
+  </div>
+</div>
+
+<p class="lb-scope-hint">
+  {% if scope == 'section' %}{{ my_section or 'You have no section yet' }}
+  {% elif scope == 'grade' %}{% if my_grade %}Grade {{ my_grade }} — all sections{% else %}You have no grade yet{% endif %}
+  {% else %}Every Cyber Guardian in the school{% endif %}
+  · {{ rows|length }} student{{ 's' if rows|length != 1 else '' }}
+</p>
+
+{% if rows %}
+  <div class="ranking-list lb-list">
+    {% for row in rows %}
+      <div class="ranking-row lb-row{% if row.id == g.user['id'] %} is-me{% endif %}">
+        <strong class="ranking-position">
+          {% if row.position == 1 %}{{ lucide('crown', size=16) }}{% else %}{{ row.position }}{% endif %}
+        </strong>
+        <div class="ranking-name">
+          <strong>{{ row.full_name }}{% if row.id == g.user['id'] %} <span class="lb-you">you</span>{% endif %}</strong>
+          <small>{{ row.grade_section or 'No section' }} · {{ row.title }}</small>
+        </div>
+        <div class="ranking-stats">
+          <strong>{{ row.points }} <small>pts</small></strong>
+          <span class="ranking-badge badge-{{ row.badge|lower }}">{{ row.badge }}</span>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="lb-empty">
+    {% if badge_filter %}No students at {{ badge_filter }} rank in this group yet.
+    {% else %}No students to rank here yet.{% endif %}
+  </p>
+{% endif %}

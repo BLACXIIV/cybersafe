@@ -3,12 +3,13 @@
 
 {% block content %}
 <div class="auth-wrap">
-  <div class="auth-card glow-ring fade-up">
+  <div class="auth-card auth-card-wide glow-ring fade-up">
     <div class="auth-icon">{{ lucide('lock', size=30) }}</div>
     <h1>Create Your Account</h1>
     <p class="auth-subtitle">Join Cyber-S.A.F.E. and start your first mission.</p>
 
-    <form method="post" action="{{ url_for('auth.signup') }}" novalidate>
+    <form class="signup-form" method="post" action="{{ url_for('auth.signup') }}" novalidate>
+      <div class="signup-fields">
       <div class="form-group">
         <label for="full_name">Full Name</label>
         <input type="text" id="full_name" name="full_name" placeholder="Juan Dela Cruz"
@@ -58,6 +59,7 @@
           <input type="password" id="confirm_password" name="confirm_password"
                  placeholder="Repeat password" autocomplete="new-password" required>
         </div>
+      </div>
       </div>
 
       <div class="pw-policy" id="pw-policy">

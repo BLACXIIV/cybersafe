@@ -117,6 +117,7 @@
             <span class="mission-bank-count">{{ group['items']|length }} question{{ 's' if group['items']|length != 1 else '' }}</span>
             <span class="mission-bank-chevron">{{ lucide('chevron-down', size=16) }}</span>
           </summary>
+          <div class="mission-bank-body">
           {% if group.level['focus'] %}<p class="mission-bank-focus">{{ group.level['focus'] }}</p>{% endif %}
           <div class="mission-bank-questions">
             {% for item in group['items'] %}
@@ -141,6 +142,7 @@
             {% else %}
               <p class="admin-muted">No questions in this mission yet.</p>
             {% endfor %}
+          </div>
           </div>
         </details>
       {% else %}
@@ -399,6 +401,60 @@
   form.addEventListener('submit', function(e) {
     e.preventDefault();
     doSearch();
+  });
+})();
+</script>
+
+<script>
+// Slide the mission bank levels open/closed instead of snapping (native <details>).
+(function() {
+  const levels = document.querySelectorAll('.mission-bank-level');
+  if (!levels.length || typeof Element.prototype.animate !== 'function') return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const DURATION = 260;
+  const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+  levels.forEach(function(details) {
+    const summary = details.querySelector('.mission-bank-summary');
+    const body = details.querySelector('.mission-bank-body');
+    if (!summary || !body) return;
+
+    let animation = null;
+
+    function slide(opening) {
+      if (animation) {
+        animation.oncancel = null;
+        animation.cancel();
+        animation = null;
+      }
+      const from = opening ? 0 : body.offsetHeight;
+      const to = opening ? body.scrollHeight : 0;
+      details.classList.toggle('is-closing', !opening);
+
+      animation = body.animate(
+        { height: [from + 'px', to + 'px'], opacity: opening ? [0, 1] : [1, 0] },
+        { duration: DURATION, easing: EASING }
+      );
+      animation.onfinish = function() {
+        animation = null;
+        details.classList.remove('is-closing');
+        if (!opening) details.open = false;
+      };
+      animation.oncancel = function() {
+        details.classList.remove('is-closing');
+      };
+    }
+
+    summary.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (details.open) {
+        slide(false);
+      } else {
+        details.open = true;
+        slide(true);
+      }
+    });
   });
 })();
 </script>
