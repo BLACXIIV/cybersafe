@@ -235,6 +235,7 @@ img { max-width: 100%; display: block; }
   border: 1px solid var(--border-sub);
   border-radius: 9999px;
   background: rgba(26,37,64,.6);
+  color: var(--text-primary);
 }
 
 .nav-avatar {
@@ -254,6 +255,57 @@ img { max-width: 100%; display: block; }
 .nav-user-copy { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .nav-user-copy strong { font-size: 0.75rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .nav-user-copy small { color: var(--text-secondary); font-size: 0.62rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+button.nav-user { cursor: pointer; }
+.nav-caret { display: inline-flex; align-items: center; color: var(--text-tertiary); }
+
+.nav-account { position: relative; display: flex; align-items: center; }
+.nav-account-menu {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  min-width: 180px;
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  box-shadow: 0 12px 32px rgba(0,0,0,.55);
+  display: none;
+  z-index: 100;
+}
+.nav-account.is-open .nav-account-menu { display: block; }
+.nav-account.is-open .nav-caret { transform: rotate(180deg); }
+
+.nav-account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--border-sub);
+  margin-bottom: 0.4rem;
+}
+.nav-account-info strong { font-size: 0.8rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.nav-account-info small { font-size: 0.65rem; color: var(--text-secondary); }
+
+.nav-account-actions { display: flex; flex-direction: column; }
+.nav-account-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.nav-account-logout svg { width: 16px; height: 16px; }
+.nav-account-logout:hover { background: rgba(239,68,68,.1); color: #fca5a5; border-color: rgba(239,68,68,.35); }
 
 .nav-logout {
   display: inline-flex;
@@ -315,13 +367,11 @@ img { max-width: 100%; display: block; }
 }
 
 @media (max-width: 900px) {
-  /* Collapse the nav to icons so everything still fits on one row. */
+  /* Collapse the nav to icons and move logout into the account dropdown. */
   .nav-link { padding: 0.4rem 0.5rem; }
   .nav-link-text { display: none; }
-  .nav-user { max-width: none; padding: 0.25rem; }
+  .nav-user { max-width: none; padding: 0.25rem 0.4rem 0.25rem 0.25rem; }
   .nav-user-copy { display: none; }
-  .nav-logout-text { display: none; }
-  .nav-logout { padding: 0.45rem 0.55rem; }
 }
 
 @media (max-width: 720px) {
@@ -911,6 +961,41 @@ img { max-width: 100%; display: block; }
 }
 
 .mission-item:hover { transform: translateX(3px); border-color: var(--accent-cyan); box-shadow: 0 0 18px rgba(34,211,238,.12); }
+
+.mission-card { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+.mission-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; flex-wrap: wrap; }
+.mission-header .name {
+  flex: 1;
+  min-width: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.mission-header .name svg { width: 18px; height: 18px; color: var(--accent-cyan); vertical-align: -0.25rem; margin-right: 0.3rem; }
+.mission-actions { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.mission-locked-label {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+  opacity: 0.6;
+}
+.mission-admin-badge {
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border-color);
+  border-radius: 99px;
+  color: var(--text-tertiary);
+  font-size: 0.7rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+.mission-admin-badge:hover { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+.mission-focus { margin: 0; color: var(--text-secondary); font-size: 0.85rem; }
 .mission-icon { width: 24px; flex: 0 0 24px; color: var(--accent-cyan); display: flex; align-items: center; justify-content: center; }
 .mission-copy { flex: 1; min-width: 0; }
 .mission-copy strong, .mission-copy small { display: block; }

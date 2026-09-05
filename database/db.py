@@ -63,6 +63,14 @@ def ensure_admin_data(app):
         if "is_active" not in columns:
             db.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
 
+        voucher_tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "vouchers" in voucher_tables:
+            voucher_columns = {row[1] for row in db.execute("PRAGMA table_info(vouchers)").fetchall()}
+            if "ip_address" not in voucher_columns:
+                db.execute("ALTER TABLE vouchers ADD COLUMN ip_address TEXT")
+            if "mac_address" not in voucher_columns:
+                db.execute("ALTER TABLE vouchers ADD COLUMN mac_address TEXT")
+
         db.execute("""CREATE TABLE IF NOT EXISTS school_settings (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             school_name TEXT NOT NULL DEFAULT 'Cyber-S.A.F.E. School',

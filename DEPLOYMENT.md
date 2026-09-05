@@ -178,11 +178,12 @@ cd ~/cybersafe && git pull && sudo systemctl restart cybersafe
 | `database is locked` | Reduce `--workers`, confirm only one service instance runs |
 | Changes not appearing | `sudo systemctl restart cybersafe` after `git pull` |
 
-## Not yet implemented
+## Real internet gating (captive portal)
 
-The README describes a captive-portal/voucher system, but the current voucher
-logic only records flags in SQLite — it does not grant or block real internet
-access. Doing that for real requires the Pi to act as the network gateway
-(`hostapd` for the access point, `dnsmasq` for DHCP/DNS, and `iptables` rules to
-gate traffic per client). That is a separate, significantly larger piece of work
-and would be the point at which an SSID and password become relevant.
+The voucher system now does grant and block real internet access, not just a
+flag in SQLite — see **[NETWORK_SETUP.md](NETWORK_SETUP.md)**. That's a
+separate, bigger step on top of everything above: it turns the Pi into a WiFi
+access point and a gateway that only forwards a device's traffic to the
+internet while its voucher is active. Do the ethernet-only setup on this page
+first, confirm the app itself works, and only then move on to
+`NETWORK_SETUP.md`.

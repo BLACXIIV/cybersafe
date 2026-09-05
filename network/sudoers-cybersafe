@@ -1,0 +1,8 @@
+# Installed to /etc/sudoers.d/cybersafe by setup_ap.sh.
+# Lets the app (running as user "pi") flip the internet gate for a single
+# device WITHOUT giving it root. This is the only privileged thing the web
+# app can do — everything else it runs as an ordinary user.
+#
+# Always edit this file with `sudo visudo -f /etc/sudoers.d/cybersafe`,
+# never a plain text editor, so a syntax error can't lock out sudo entirely.
+pi ALL=(root) NOPASSWD: /usr/local/sbin/cybersafe-grant-access

@@ -52,16 +52,27 @@
                 {% if not block_tests_when_active %}<span class="nav-pill-hint">off</span>{% endif %}
               </a>
             {% endif %}
-            <div class="nav-user">
-              <span class="nav-avatar">{{ g.user['full_name'][:1]|upper }}</span>
-              <span class="nav-user-copy">
-                <strong>{{ g.user['full_name'] }}</strong>
-                <small>{% if g.user['role'] == 'admin' %}Administrator{% else %}{{ g.user['level'] }} · {{ g.user['points'] }} pts{% endif %}</small>
-              </span>
+            <div class="nav-account" id="nav-account">
+              <button type="button" class="nav-user" id="nav-user-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="account-menu">
+                <span class="nav-avatar">{{ g.user['full_name'][:1]|upper }}</span>
+                <span class="nav-user-copy">
+                  <strong>{{ g.user['full_name'] }}</strong>
+                  <small>{% if g.user['role'] == 'admin' %}Administrator{% else %}{{ g.user['level'] }} · {{ g.user['points'] }} pts{% endif %}</small>
+                </span>
+                <span class="nav-caret" aria-hidden="true">{{ lucide('chevron-down', size=14) }}</span>
+              </button>
+              <div class="nav-account-menu" id="account-menu" role="menu" aria-hidden="true" aria-labelledby="nav-user-toggle">
+                <div class="nav-account-info">
+                  <strong>{{ g.user['full_name'] }}</strong>
+                  <small>{% if g.user['role'] == 'admin' %}Administrator{% else %}{{ g.user['level'] }} · {{ g.user['points'] }} pts{% endif %}</small>
+                </div>
+                <div class="nav-account-actions">
+                  <button type="button" class="nav-account-logout logout-trigger" role="menuitem">
+                    {{ lucide('log-out', size=16) }} <span>Log Out</span>
+                  </button>
+                </div>
+              </div>
             </div>
-            <button class="nav-logout" type="button" id="logout-trigger" aria-label="Log out" title="Log out">
-              {{ lucide('log-out', size=16) }}<span class="nav-logout-text">Log Out</span>
-            </button>
           {% endif %}
         </div>
       </div>
@@ -177,10 +188,10 @@
   </script>
   <script>
   (function() {
-    const trigger = document.getElementById('logout-trigger');
+    const triggers = document.querySelectorAll('.logout-trigger');
     const modal = document.getElementById('logout-modal');
     const cancel = document.getElementById('logout-cancel');
-    if (!trigger || !modal || !cancel) return;
+    if (!triggers.length || !modal || !cancel) return;
     function openModal(e) {
       e.preventDefault();
       modal.style.display = 'flex';
@@ -190,10 +201,37 @@
       modal.style.display = 'none';
       modal.setAttribute('aria-hidden', 'true');
     }
-    trigger.addEventListener('click', openModal);
+    triggers.forEach(function(trigger) { trigger.addEventListener('click', openModal); });
     cancel.addEventListener('click', closeModal);
     modal.addEventListener('click', function(e) {
       if (e.target === modal) closeModal();
+    });
+  })();
+  </script>
+  <script>
+  (function() {
+    const account = document.getElementById('nav-account');
+    const toggle = document.getElementById('nav-user-toggle');
+    const menu = document.getElementById('account-menu');
+    if (!account || !toggle || !menu) return;
+
+    function setOpen(open) {
+      account.classList.toggle('is-open', open);
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      setOpen(!account.classList.contains('is-open'));
+    });
+
+    document.addEventListener('click', function(e) {
+      if (!account.contains(e.target)) setOpen(false);
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && account.classList.contains('is-open')) setOpen(false);
     });
   })();
   </script>

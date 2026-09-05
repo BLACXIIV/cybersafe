@@ -1,0 +1,13 @@
+[Unit]
+Description=Create the ipset used to gate internet access for Cyber-S.A.F.E. vouchers
+Before=hostapd.service netfilter-persistent.service cybersafe-reconcile.service
+After=local-fs.target
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/ipset create voucher_allow hash:mac timeout 0 -exist
+
+[Install]
+WantedBy=multi-user.target

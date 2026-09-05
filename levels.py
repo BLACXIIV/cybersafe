@@ -8,6 +8,9 @@ from flask import Blueprint, render_template, redirect, url_for, request, g, fla
 from auth import login_required, student_required
 from database.db import get_db
 from ranks import BADGE_ORDER, rank_info
+import network_access
+
+VOUCHER_DURATION_SECONDS = 5 * 60 * 60  # keep in sync with the "+5 hours" SQL below
 
 bp = Blueprint("levels", __name__, url_prefix="/levels")
 
@@ -286,6 +289,55 @@ def _has_active_voucher(db, user_id):
     """Return True if the user currently has a live internet connection."""
     vouchers = db.execute("SELECT * FROM vouchers WHERE user_id = ?", (user_id,)).fetchall()
     return any(_voucher_active(v) for v in vouchers)
+
+
+def _activate_voucher(db, voucher_row):
+    """Mark a voucher as used/active AND actually open the gate for the
+    device that redeemed it.
+
+    Looks up the caller's MAC address from the Pi's ARP table (this only
+    works when the request really came in over the AP subnet — e.g. not
+    when testing from `localhost`) and grants it internet access for
+    VOUCHER_DURATION_SECONDS. The DB row is always updated regardless of
+    whether the network grant succeeds, so app behaviour on a dev machine
+    without the Pi firewall installed is unchanged.
+    """
+    ip_address = request.remote_addr
+    mac_address = network_access.get_mac_for_ip(ip_address)
+
+    db.execute(
+        """UPDATE vouchers
+           SET used_at = CURRENT_TIMESTAMP,
+               expires_at = datetime('now', '+5 hours'),
+               ip_address = ?,
+               mac_address = ?
+           WHERE id = ?""",
+        (ip_address, mac_address, voucher_row["id"]),
+    )
+
+    if mac_address:
+        granted = network_access.grant_internet_access(mac_address, VOUCHER_DURATION_SECONDS)
+        if not granted:
+            current_app.logger.warning(
+                "Voucher %s activated but firewall grant failed for MAC %s (is network/setup_ap.sh installed?)",
+                voucher_row["code"], mac_address,
+            )
+    else:
+        current_app.logger.info(
+            "Voucher %s activated but no MAC address found for IP %s; "
+            "internet access was not opened at the firewall.",
+            voucher_row["code"], ip_address,
+        )
+
+
+def _deactivate_voucher(db, voucher_row):
+    """Turn a voucher off early (student toggled internet access off)."""
+    db.execute(
+        "UPDATE vouchers SET used_at = NULL, expires_at = NULL WHERE id = ?",
+        (voucher_row["id"],),
+    )
+    if voucher_row["mac_address"]:
+        network_access.revoke_internet_access(voucher_row["mac_address"])
 
 
 def _generate_voucher_code(db):
@@ -739,13 +791,7 @@ def connect(level_number):
             else:
                 flash("This voucher has expired. Take the test again for a new one.", "error")
         else:
-            db.execute(
-                """UPDATE vouchers
-                   SET used_at = CURRENT_TIMESTAMP,
-                       expires_at = datetime('now', '+5 hours')
-                   WHERE id = ?""",
-                (voucher_row["id"],),
-            )
+            _activate_voucher(db, voucher_row)
             # Connecting to the internet is when pending points become real.
             claimed = _claim_pending_points(db, user_id)
             db.commit()

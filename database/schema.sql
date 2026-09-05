@@ -83,6 +83,8 @@ CREATE TABLE vouchers (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     used_at    TIMESTAMP,
     expires_at TIMESTAMP,
+    ip_address  TEXT,  -- client IP on the AP subnet at the moment the voucher was redeemed
+    mac_address TEXT,  -- client MAC, used to open/close the firewall gate for this device
     UNIQUE(user_id, level_id)
 );
 

@@ -62,6 +62,16 @@ def migrate():
         )
         print("Created vouchers table.")
 
+    # 2b. Add vouchers.ip_address / vouchers.mac_address if missing (captive-portal gating).
+    if "vouchers" in tables:
+        voucher_columns = {row[1] for row in cur.execute("PRAGMA table_info(vouchers)").fetchall()}
+        if "ip_address" not in voucher_columns:
+            cur.execute("ALTER TABLE vouchers ADD COLUMN ip_address TEXT")
+            print("Added vouchers.ip_address column.")
+        if "mac_address" not in voucher_columns:
+            cur.execute("ALTER TABLE vouchers ADD COLUMN mac_address TEXT")
+            print("Added vouchers.mac_address column.")
+
     # 3. Update questions and choices from JSON.
     level_count = 0
     question_count = 0

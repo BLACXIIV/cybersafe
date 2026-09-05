@@ -219,10 +219,7 @@ def internet_access_redeem():
         flash("That voucher has already been used.", "error")
         return redirect(url_for("main.internet_access"))
 
-    db.execute(
-        "UPDATE vouchers SET used_at = CURRENT_TIMESTAMP, expires_at = datetime('now', '+5 hours') WHERE id = ?",
-        (voucher["id"],),
-    )
+    levels._activate_voucher(db, voucher)
     claimed = levels._claim_pending_points(db, user_id)
     db.commit()
 
@@ -248,10 +245,7 @@ def internet_access_toggle():
     # Find an active voucher and disconnect it.
     for v in all_vouchers:
         if levels._voucher_active(v):
-            db.execute(
-                "UPDATE vouchers SET used_at = NULL, expires_at = NULL WHERE id = ?",
-                (v["id"],),
-            )
+            levels._deactivate_voucher(db, v)
             db.commit()
             flash("Internet access turned off.", "success")
             return redirect(url_for("main.internet_access"))
@@ -262,10 +256,7 @@ def internet_access_toggle():
         flash("No voucher available. Complete a mission to earn one.", "error")
         return redirect(url_for("main.internet_access"))
 
-    db.execute(
-        "UPDATE vouchers SET used_at = CURRENT_TIMESTAMP, expires_at = datetime('now', '+5 hours') WHERE id = ?",
-        (unused["id"],),
-    )
+    levels._activate_voucher(db, unused)
     claimed = levels._claim_pending_points(db, user_id)
     db.commit()
     if claimed > 0:

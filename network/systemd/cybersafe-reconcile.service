@@ -1,0 +1,15 @@
+[Unit]
+Description=Re-grant internet access for still-active Cyber-S.A.F.E. vouchers after boot
+After=network-online.target cybersafe-ipset.service cybersafe.service
+Wants=network-online.target
+Requires=cybersafe-ipset.service
+
+[Service]
+Type=oneshot
+User=pi
+WorkingDirectory=/home/pi/cybersafe
+Environment="CYBERSAFE_DB_PATH=/home/pi/cybersafe/database/cybersafe.db"
+ExecStart=/home/pi/cybersafe/.venv/bin/python /home/pi/cybersafe/network/reconcile_access.py
+
+[Install]
+WantedBy=multi-user.target
