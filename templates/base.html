@@ -5,8 +5,8 @@
   <!-- This viewport tag is what makes the site responsive on phones/tablets -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Cyber-S.A.F.E.{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/hero.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=2) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/hero.css', v=2) }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
   <div class="page-wrap">
@@ -30,7 +30,9 @@
             ('admin.dashboard' if is_admin else 'main.dashboard', 'Dashboard', 'shield' if is_admin else 'layout-dashboard'),
             ('levels.index', 'Missions', 'target'),
           ] %}
-          {% if not is_admin %}
+          {% if is_admin %}
+            {% set nav_items = nav_items + [('admin.report', 'Reports', 'trending-up')] %}
+          {% else %}
             {% set nav_items = nav_items + [('main.internet_access', 'Access', 'wifi')] %}
           {% endif %}
           <div class="nav-menu">
@@ -249,7 +251,7 @@
       && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const DURATION = 240;
     const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
-    let scope = 'section';
+    let scope = 'grade';
     let badge = '';
     let loading = false;
     let heightAnim = null;

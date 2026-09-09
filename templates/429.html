@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Too Many Requests - Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card" style="text-align:center;">
+    <div class="hero-shield-wrap" style="margin-bottom:1rem;">
+      <div class="hero-aura pulse-glow"></div>
+      <div class="hero-shield" style="color:var(--accent-red, #ef4444);">{{ lucide('shield', size=48) }}</div>
+    </div>
+    <h1>Too many attempts</h1>
+    <p class="auth-subtitle">You have made too many requests in a short time. Please wait a moment and try again.</p>
+    <a class="btn btn-primary" href="{{ url_for('main.landing') }}">Go back home</a>
+  </div>
+</div>
+{% endblock %}

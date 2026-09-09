@@ -20,6 +20,8 @@ CREATE TABLE users (
     points        INTEGER NOT NULL DEFAULT 0,
     level         TEXT NOT NULL DEFAULT 'Cyber Rookie',
     is_active     INTEGER NOT NULL DEFAULT 1,
+    cooldown_until TIMESTAMP,  -- when a 0-point answer locks the user out
+    is_password_set INTEGER NOT NULL DEFAULT 0,  -- 1 after the student sets their own password
     created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -98,14 +100,6 @@ CREATE TABLE grades (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL UNIQUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE sections (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    grade_id   INTEGER NOT NULL REFERENCES grades(id) ON DELETE CASCADE,
-    name       TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(grade_id, name)
 );
 
 INSERT OR IGNORE INTO school_settings (id, school_name) VALUES (1, 'Cyber-S.A.F.E. School');

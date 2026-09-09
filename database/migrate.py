@@ -34,11 +34,19 @@ def migrate():
     conn.execute("PRAGMA foreign_keys = ON")
     cur = conn.cursor()
 
-    # 1. Add users.is_active if it does not exist.
+    # 1. Add users.is_active / cooldown_until / is_password_set if missing.
     user_columns = {row[1] for row in cur.execute("PRAGMA table_info(users)").fetchall()}
     if "is_active" not in user_columns:
         cur.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
         print("Added users.is_active column.")
+    if "cooldown_until" not in user_columns:
+        cur.execute("ALTER TABLE users ADD COLUMN cooldown_until TIMESTAMP")
+        print("Added users.cooldown_until column.")
+    if "is_password_set" not in user_columns:
+        cur.execute("ALTER TABLE users ADD COLUMN is_password_set INTEGER NOT NULL DEFAULT 1")
+        print("Added users.is_password_set column.")
+        cur.execute("UPDATE users SET is_password_set = 1")
+
 
     # 2. Add questions.explanation if it does not exist.
     columns = {row[1] for row in cur.execute("PRAGMA table_info(questions)").fetchall()}

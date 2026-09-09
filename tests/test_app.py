@@ -6,7 +6,7 @@ from security import MIN_LENGTH, validate_password, describe_problems
 @pytest.fixture
 def app():
     app = create_app()
-    app.config.update({"TESTING": True})
+    app.config.update({"TESTING": True, "RATELIMIT_ENABLED": False})
     return app
 
 
@@ -84,13 +84,30 @@ def test_describe_problems_builds_one_sentence():
     assert combined == "Your password must include a number; and include a symbol."
 
 
+def _pre_register_student(client, username="weakpwuser"):
+    app = client.application
+    with app.app_context():
+        from database.db import get_db
+        db = get_db()
+        db.execute(
+            """INSERT OR IGNORE INTO users
+               (full_name, username, email, password_hash, grade_section, role, is_password_set)
+               VALUES (?, ?, ?, '', 'Grade 10', 'student', 0)""",
+            ("Test Student", username, f"{username}@cybersafe.local"),
+        )
+        db.execute(
+            "UPDATE users SET is_password_set = 0, password_hash = '' WHERE username = ?",
+            (username,),
+        )
+        db.commit()
+
+
 def test_signup_rejects_weak_password(client):
-    response = client.post("/signup", data={
-        "full_name": "Test Student",
-        "username": "weakpwuser",
-        "email": "weakpwuser@school.edu",
-        "grade_id": "1",
-        "section_id": "1",
+    _pre_register_student(client)
+    client.post("/login", data={"identifier": "weakpwuser", "step": "1"})
+    response = client.post("/login", data={
+        "identifier": "weakpwuser",
+        "step": "2",
         "password": "password123",
         "confirm_password": "password123",
     }, follow_redirects=True)
@@ -99,6 +116,8 @@ def test_signup_rejects_weak_password(client):
 
 
 def test_signup_page_shows_the_rules(client):
-    response = client.get("/signup")
+    _pre_register_student(client, username="rulespwuser")
+    response = client.post("/login", data={"identifier": "rulespwuser", "step": "1"})
+    assert response.status_code == 200
     assert b"pw-rules" in response.data
     assert f"At least {MIN_LENGTH} characters".encode() in response.data

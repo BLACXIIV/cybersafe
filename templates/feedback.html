@@ -94,6 +94,13 @@
     {{ question.explanation or "The best choice is " ~ correct_choice.choice_text ~ " because it is the safest, most responsible option." }}
   </div>
 
+  {% if is_wrong and cooldown_active %}
+  <div class="cooldown-notice" aria-live="polite">
+    <strong>Take a breather.</strong>
+    Wait <span id="cooldown-timer" data-until="{{ cooldown_until }}" data-seconds="{{ cooldown_seconds }}">{{ "%d:%02d"|format(cooldown_seconds // 60, cooldown_seconds % 60) }}</span> before your next test.
+  </div>
+  {% endif %}
+
   <div style="display:flex; gap:0.75rem; flex-wrap:wrap; margin-top:1.5rem;">
     {% if not is_wrong %}
       {% if pending_points > 0 %}
@@ -111,7 +118,7 @@
         <a class="btn btn-primary" href="{{ url_for('levels.voucher', level_number=level.level_number, question_id=question.id) }}">
           Use Voucher to Claim {{ pending_points }} Points
         </a>
-      {% elif has_more %}
+      {% elif has_more and not cooldown_active %}
         <a class="btn btn-primary" style="display:inline-flex; align-items:center; gap:0.4rem;" href="{{ url_for('levels.play', level_number=level.level_number, skip=question.id) }}">
           Next Question {{ lucide('arrow-right', size=16) }}
         </a>
@@ -178,6 +185,37 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
   });
+})();
+</script>
+{% endif %}
+
+{% if is_wrong and cooldown_active %}
+<script>
+(function() {
+  const timerEl = document.getElementById('cooldown-timer');
+  if (!timerEl) return;
+
+  const endAt = new Date(timerEl.dataset.until);
+  let seconds = parseInt(timerEl.dataset.seconds, 10);
+
+  function format(totalSeconds) {
+    const m = Math.floor(totalSeconds / 60);
+    const s = Math.max(0, totalSeconds % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function tick() {
+    const remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+    timerEl.textContent = format(remaining);
+    if (remaining <= 0) {
+      clearInterval(interval);
+      // Auto-reload once the cooldown is over so the Next Question button appears.
+      location.reload();
+    }
+  }
+
+  const interval = setInterval(tick, 1000);
+  tick();
 })();
 </script>
 {% endif %}

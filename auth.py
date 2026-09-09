@@ -3,14 +3,29 @@ from functools import wraps
 
 from flask import (
     Blueprint, render_template, request, redirect,
-    url_for, session, flash, g
+    url_for, session, flash, g, jsonify
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from database.db import get_db
+from extensions import limiter
 from security import validate_password, describe_problems
 
 bp = Blueprint("auth", __name__)
+
+
+def _normalize_name(first_name, last_name):
+    """Combine first and last name and title-case them for display."""
+    return " ".join(part.title() for part in (first_name, last_name) if part).strip()
+
+
+def _lookup_by_lrn(db, lrn):
+    """Find a pre-registered student by LRN (stored as username) or its
+    generated placeholder email. Returns the row or None."""
+    return db.execute(
+        "SELECT * FROM users WHERE (username = ? OR email = ?) AND role = 'student'",
+        (lrn, f"{lrn}@cybersafe.local"),
+    ).fetchone()
 
 
 def login_required(view):
@@ -42,105 +57,157 @@ def student_required(view):
 
 @bp.route("/signup", methods=("GET", "POST"))
 def signup():
-    if session.get("user_id"):
-        return redirect(url_for("main.dashboard"))
+    """First-time password creation now happens through the two-step /login flow.
+    This URL is kept for compatibility but redirects there."""
+    return redirect(url_for("auth.login"))
 
-    if request.method == "POST":
-        full_name = request.form.get("full_name", "").strip()
-        username = request.form.get("username", "").strip()
-        email = request.form.get("email", "").strip().lower()
-        grade_id = request.form.get("grade_id", type=int)
-        section_id = request.form.get("section_id", type=int)
-        password = request.form.get("password", "")
-        confirm_password = request.form.get("confirm_password", "")
 
-        error = None
-        if not full_name:
-            error = "Full name is required."
-        elif not username:
-            error = "Username is required."
-        elif not email or "@" not in email:
-            error = "A valid email is required."
-        elif not grade_id or not section_id:
-            error = "Select a grade and section."
-        elif password != confirm_password:
-            error = "Passwords do not match."
-        else:
-            # The browser shows the same rules live; this is the authoritative check.
-            error = describe_problems(
-                validate_password(password, personal_values=(full_name, username, email))
-            )
+def _login_limit():
+    if request.method == "POST" and request.form.get("step") == "2":
+        return "5 per minute"
+    return "10 per minute"
 
-        if error is None:
-            db = get_db()
-            selected_section = db.execute(
-                """SELECT g.name AS grade_name, s.name AS section_name
-                   FROM sections s JOIN grades g ON g.id = s.grade_id
-                   WHERE s.id = ? AND s.grade_id = ?""",
-                (section_id, grade_id),
-            ).fetchone()
-            if selected_section is None:
-                error = "Select a valid section for the chosen grade."
-            else:
-                grade_section = f"{selected_section['grade_name']} - {selected_section['section_name']}"
-            try:
-                if error is None:
-                    db.execute(
-                        """INSERT INTO users
-                           (full_name, username, email, password_hash, grade_section)
-                           VALUES (?, ?, ?, ?, ?)""",
-                        (full_name, username, email,
-                         generate_password_hash(password), grade_section),
-                    )
-                    db.commit()
-            except sqlite3.IntegrityError:
-                error = "That username or email is already registered."
-            if error is None:
-                flash("Account created! You can now log in.", "success")
-                return redirect(url_for("auth.login"))
 
-        flash(error, "error")
-
-    db = get_db()
-    grades = db.execute("SELECT id, name FROM grades ORDER BY name COLLATE NOCASE").fetchall()
-    sections = db.execute(
-        "SELECT id, grade_id, name FROM sections ORDER BY grade_id, name COLLATE NOCASE"
-    ).fetchall()
-    return render_template("signup.html", grades=grades, sections=sections)
+def _login_key():
+    if request.method == "POST" and request.form.get("step") == "2":
+        return (session.get("login_lrn") or request.remote_addr or "").lower()
+    return request.remote_addr or ""
 
 
 @bp.route("/login", methods=("GET", "POST"))
+@limiter.limit(_login_limit, key_func=_login_key)
 def login():
     if session.get("user_id"):
         return redirect(url_for("main.dashboard"))
 
-    if request.method == "POST":
-        identifier = request.form.get("identifier", "").strip().lower()
-        password = request.form.get("password", "")
+    db = get_db()
+    step = request.form.get("step", "1")
 
-        db = get_db()
+    # Step 1: only the LRN is entered.
+    if request.method == "POST" and step == "1":
+        identifier = request.form.get("identifier", "").strip().lower()
         user = db.execute(
             "SELECT * FROM users WHERE username = ? OR email = ?",
             (identifier, identifier),
         ).fetchone()
 
-        error = None
-        if user is None:
-            error = "Incorrect username/email or password."
-        elif not check_password_hash(user["password_hash"], password):
-            error = "Incorrect username/email or password."
+        is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+        if not identifier:
+            error = "Enter your LRN."
+            if is_xhr:
+                return jsonify({"ok": False, "error": error}), 400
+            flash(error, "error")
+        elif user is None:
+            error = "LRN not found. Ask your administrator to register your account."
+            if is_xhr:
+                return jsonify({"ok": False, "error": error}), 404
+            flash(error, "error")
         elif not user["is_active"]:
             error = "This account has been suspended. Contact an administrator."
+            if is_xhr:
+                return jsonify({"ok": False, "error": error}), 403
+            flash(error, "error")
+        else:
+            session["login_lrn"] = identifier
+            session["login_user_id"] = user["id"]
+            session["login_mode"] = "login" if user["is_password_set"] else "create"
+            if is_xhr:
+                return jsonify({
+                    "ok": True,
+                    "mode": session["login_mode"],
+                    "full_name": user["full_name"],
+                    "username": user["username"],
+                    "email": user["email"],
+                })
+            return render_template(
+                "login.html",
+                step=2,
+                mode=session["login_mode"],
+                login_user=user,
+                identifier=identifier,
+            )
 
-        if error is None:
+    # Step 2: password entry or creation.
+    if request.method == "POST" and step == "2":
+        identifier = session.get("login_lrn")
+        user_id = session.get("login_user_id")
+        mode = session.get("login_mode")
+        is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+        def step2_error(message):
+            if is_xhr:
+                return jsonify({"ok": False, "error": message}), 400
+            flash(message, "error")
+            return render_template(
+                "login.html",
+                step=2,
+                mode=mode,
+                login_user=user,
+                identifier=identifier,
+            )
+
+        def step2_success():
             session.clear()
             session["user_id"] = user["id"]
-            if user["role"] == "admin":
-                return redirect(url_for("admin.dashboard", welcome=1))
-            return redirect(url_for("main.dashboard", welcome=1))
+            target = (
+                url_for("admin.dashboard", welcome=1)
+                if user["role"] == "admin"
+                else url_for("main.dashboard", welcome=1)
+            )
+            if is_xhr:
+                return jsonify({"ok": True, "redirect": target})
+            return redirect(target)
 
-        flash(error, "error")
+        if not identifier or not user_id or not mode:
+            if is_xhr:
+                return jsonify({"ok": False, "error": "Session expired. Enter your LRN again."}), 400
+            return redirect(url_for("auth.login"))
 
+        user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        if user is None or user["username"].lower() != identifier.lower():
+            session.pop("login_lrn", None)
+            session.pop("login_user_id", None)
+            session.pop("login_mode", None)
+            if is_xhr:
+                return jsonify({"ok": False, "error": "Session expired. Enter your LRN again."}), 400
+            flash("Session expired. Enter your LRN again.", "error")
+            return redirect(url_for("auth.login"))
+
+        if mode == "create":
+            password = request.form.get("password", "")
+            confirm_password = request.form.get("confirm_password", "")
+
+            if password != confirm_password:
+                return step2_error("Passwords do not match.")
+
+            error = describe_problems(
+                validate_password(
+                    password,
+                    personal_values=(user["full_name"], user["username"], user["email"]),
+                )
+            )
+            if error:
+                return step2_error(error)
+
+            db.execute(
+                "UPDATE users SET password_hash = ?, is_password_set = 1 WHERE id = ?",
+                (generate_password_hash(password), user["id"]),
+            )
+            db.commit()
+            return step2_success()
+
+        # mode == "login"
+        password = request.form.get("password", "")
+        if not check_password_hash(user["password_hash"], password):
+            return step2_error("Incorrect password.")
+
+        return step2_success()
+
+    # Fresh request: clear any stale step-2 session and show LRN field.
+    session.pop("login_lrn", None)
+    session.pop("login_user_id", None)
+    session.pop("login_mode", None)
     return render_template("login.html")
 
 

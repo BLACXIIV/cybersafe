@@ -9,7 +9,11 @@
       "Exec(git status)",
       "Exec(ls)",
       "Exec(git show)",
-      "Exec(Remove-Item)"
+      "Exec(Remove-Item)",
+      "Exec(.venv\\Scripts\\python.exe)",
+      "Exec(Copy-Item)",
+      "Exec(import)",
+      "Exec(Get-ChildItem database)"
     ]
   }
 }

@@ -1,14 +1,17 @@
 import random
 import secrets
 import string
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, redirect, url_for, request, g, flash, current_app, session
 
 from auth import login_required, student_required
 from database.db import get_db
+from extensions import limiter
 from ranks import BADGE_ORDER, rank_info
 import network_access
+
+COOLDOWN_MINUTES = 5
 
 VOUCHER_DURATION_SECONDS = 5 * 60 * 60  # keep in sync with the "+5 hours" SQL below
 
@@ -291,6 +294,71 @@ def _has_active_voucher(db, user_id):
     return any(_voucher_active(v) for v in vouchers)
 
 
+def _cooldown_until(db, user_id):
+    """Return the user's cooldown expiry as a UTC datetime, or None."""
+    row = db.execute("SELECT cooldown_until FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not row or not row["cooldown_until"]:
+        return None
+    try:
+        return datetime.strptime(row["cooldown_until"], "%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError):
+        return None
+
+
+def _is_cooldown_active(db, user_id):
+    """Return True if the user is in a post-wrong-answer cooldown."""
+    until = _cooldown_until(db, user_id)
+    return until is not None and datetime.utcnow() < until
+
+
+def _cooldown_seconds(db, user_id):
+    """Return the number of seconds remaining in the cooldown, or 0."""
+    until = _cooldown_until(db, user_id)
+    if until is None:
+        return 0
+    remaining = (until - datetime.utcnow()).total_seconds()
+    return int(max(0, remaining))
+
+
+def _set_cooldown(db, user_id, minutes=COOLDOWN_MINUTES):
+    """Set the user's cooldown expiry to `minutes` from now."""
+    until = datetime.utcnow() + timedelta(minutes=minutes)
+    db.execute(
+        "UPDATE users SET cooldown_until = ? WHERE id = ?",
+        (until.strftime("%Y-%m-%d %H:%M:%S"), user_id),
+    )
+
+
+def _latest_wrong_answer(db, user_id):
+    """Return the most recent 0-point answer (level_number, question_id) or None."""
+    return db.execute(
+        """SELECT l.level_number, q.id AS question_id
+           FROM user_answers ua
+           JOIN questions q ON q.id = ua.question_id
+           JOIN levels l ON l.id = q.level_id
+           WHERE ua.user_id = ? AND ua.points_earned = 0
+           ORDER BY ua.answered_at DESC, ua.id DESC
+           LIMIT 1""",
+        (user_id,),
+    ).fetchone()
+
+
+def _cooldown_feedback_redirect(db, user_id, default="levels.index"):
+    """Redirect a user on active cooldown to the feedback page for the
+    wrong answer that triggered it, so the countdown is visible."""
+    latest = _latest_wrong_answer(db, user_id)
+    if latest:
+        return redirect(
+            url_for(
+                "levels.feedback",
+                level_number=latest["level_number"],
+                question_id=latest["question_id"],
+            )
+        )
+    flash("Please wait before your next test.", "warning")
+    return redirect(url_for(default))
+
+
 def _activate_voucher(db, voucher_row):
     """Mark a voucher as used/active AND actually open the gate for the
     device that redeemed it.
@@ -471,6 +539,7 @@ def view(level_number):
 
 @bp.route("/<int:level_number>/play")
 @student_required
+@limiter.limit("30 per minute")
 def play(level_number):
     db = get_db()
     user_id = g.user["id"]
@@ -491,6 +560,9 @@ def play(level_number):
     if _pending_points(db, user_id) > 0:
         flash("You have unclaimed points. Use a voucher to connect and claim them before taking another test.", "error")
         return redirect(url_for("main.internet_access"))
+
+    if _is_cooldown_active(db, user_id):
+        return _cooldown_feedback_redirect(db, user_id)
 
     _get_or_create_progress(db, user_id, lvl["id"])
 
@@ -517,6 +589,7 @@ def play(level_number):
 
 @bp.route("/<int:level_number>/answer", methods=("POST",))
 @student_required
+@limiter.limit("30 per minute")
 def answer(level_number):
     db = get_db()
     user_id = g.user["id"]
@@ -528,6 +601,9 @@ def answer(level_number):
     if _pending_points(db, user_id) > 0:
         flash("You have unclaimed points. Use a voucher to connect and claim them before taking another test.", "error")
         return redirect(url_for("main.internet_access"))
+
+    if _is_cooldown_active(db, user_id):
+        return _cooldown_feedback_redirect(db, user_id)
 
     lvl = db.execute("SELECT * FROM levels WHERE level_number = ?", (level_number,)).fetchone()
     if lvl is None:
@@ -574,6 +650,10 @@ def answer(level_number):
     # opens the voucher page.
     if point_delta > 0:
         _ensure_voucher(db, user_id, lvl["id"])
+
+    # A 0-point answer locks the user out for 5 minutes.
+    if choice["points"] == 0:
+        _set_cooldown(db, user_id)
 
     db.commit()
 
@@ -637,6 +717,12 @@ def feedback(level_number, question_id):
     if pending_points < 0:
         pending_points = 0
 
+    is_wrong = answer_row["points"] == 0
+    until = _cooldown_until(db, user_id)
+    cooldown_active = is_wrong and until is not None and until > datetime.utcnow()
+    cooldown_until = until.strftime("%Y-%m-%dT%H:%M:%SZ") if (cooldown_active and until) else None
+    cooldown_seconds = _cooldown_seconds(db, user_id) if cooldown_active else 0
+
     return render_template(
         "feedback.html",
         level=lvl,
@@ -648,6 +734,10 @@ def feedback(level_number, question_id):
         is_perfect=is_perfect,
         has_voucher=has_voucher,
         pending_points=pending_points,
+        is_wrong=is_wrong,
+        cooldown_active=cooldown_active,
+        cooldown_until=cooldown_until,
+        cooldown_seconds=cooldown_seconds,
     )
 
 

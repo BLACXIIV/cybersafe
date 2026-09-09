@@ -267,44 +267,41 @@ def internet_access_toggle():
 
 
 def _grade_of(grade_section):
-    """Grade level part of a "<grade> - <section>" label (e.g. "11 - De-Vries")."""
+    """Return the stored grade level."""
     if not grade_section:
         return ""
-    return grade_section.split(" - ")[0].strip()
+    return grade_section.strip()
 
 
 @bp.route("/leaderboard")
 @student_required
 def leaderboard():
-    """Ranked students, scoped to the viewer's section / grade / everyone.
+    """Ranked students, scoped to the viewer's grade or everyone.
 
     Rendered as a fragment so the floating leaderboard panel can refresh it
     without a page reload.
     """
     db = get_db()
-    scope = request.args.get("scope", "section")
-    if scope not in ("section", "grade", "overall"):
-        scope = "section"
+    scope = request.args.get("scope", "grade")
+    if scope not in ("grade", "overall"):
+        scope = "grade"
     badge_filter = request.args.get("badge", "")
     if badge_filter not in BADGE_TITLES:
         badge_filter = ""
 
-    my_section = g.user["grade_section"] or ""
-    my_grade = _grade_of(my_section)
+    my_grade = _grade_of(g.user["grade_section"] or "")
 
-    if scope == "section" and my_section:
+    if scope == "grade" and my_grade:
         students = db.execute(
             """SELECT id, full_name, grade_section, points FROM users
                WHERE role = 'student' AND is_active = 1 AND grade_section = ?""",
-            (my_section,),
+            (my_grade,),
         ).fetchall()
     else:
         students = db.execute(
             """SELECT id, full_name, grade_section, points FROM users
                WHERE role = 'student' AND is_active = 1"""
         ).fetchall()
-        if scope == "grade" and my_grade:
-            students = [s for s in students if _grade_of(s["grade_section"]) == my_grade]
 
     total_questions = db.execute("SELECT COUNT(*) AS c FROM questions").fetchone()["c"]
     max_points = total_questions * 100
@@ -329,12 +326,20 @@ def leaderboard():
     if badge_filter:
         rows = [r for r in rows if r["badge"] == badge_filter]
 
+    all_tied = False
+    if rows:
+        first = rows[0]
+        all_tied = all(
+            r["points"] == first["points"] and r["badge"] == first["badge"]
+            for r in rows
+        )
+
     return render_template(
         "leaderboard_panel.html",
         rows=rows,
         scope=scope,
         badge_filter=badge_filter,
         badges=BADGE_TITLES,
-        my_section=my_section,
         my_grade=my_grade,
+        all_tied=all_tied,
     )

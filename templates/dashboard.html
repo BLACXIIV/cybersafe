@@ -74,8 +74,8 @@
         </div>
         <div class="hero-stat">
           <span class="hero-stat-icon" aria-hidden="true">{{ lucide('target', size=18) }}</span>
-          <strong>{{ level_summaries|length }}</strong>
-          <span>Missions</span>
+          <strong>{{ level_summaries|selectattr('status', 'equalto', 'completed')|list|length }}</strong>
+          <span>Missions Completed</span>
         </div>
         <div class="hero-stat">
           <span class="hero-stat-icon" aria-hidden="true">{{ lucide('trending-up', size=18) }}</span>

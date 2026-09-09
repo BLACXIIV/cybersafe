@@ -1,8 +1,9 @@
-from flask import Flask, g, session
+from flask import Flask, g, render_template, session
 from markupsafe import Markup
 
 from config import Config
 from database.db import register_app, init_db, ensure_admin_data, get_db
+from extensions import limiter
 
 
 def create_app():
@@ -15,6 +16,14 @@ def create_app():
         app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
     register_app(app)  # wires up db.close on teardown + `flask init-db` command
+
+    # Rate limiting is off during tests so the test suite does not get throttled.
+    app.config.setdefault("RATELIMIT_ENABLED", not app.config.get("TESTING", False))
+    limiter.init_app(app)
+
+    @app.errorhandler(429)
+    def too_many_requests(error):
+        return render_template("429.html"), 429
 
     @app.context_processor
     def inject_school_settings():

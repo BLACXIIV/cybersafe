@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% from "hero_avatar.html" import render_hero_avatar %}
+{% block title %}Susceptibility Report - Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<section class="admin-shell">
+  <header class="admin-heading">
+    <div>
+      <p class="eyebrow">Control center</p>
+      <h1>Susceptibility Report</h1>
+      <p>Students below the Gold badge and the overall readiness breakdown.</p>
+    </div>
+    <span class="admin-badge">Administrator</span>
+  </header>
+
+  <div class="admin-grid report-grid">
+    <section class="admin-panel report-chart-panel">
+      <div class="admin-panel-heading">
+        <h2>Readiness breakdown</h2>
+        <span>{{ total }} student{{ 's' if total != 1 else '' }}</span>
+      </div>
+
+      {% if total > 0 %}
+        <div class="report-pie-wrap" aria-label="Pie chart: {{ sus_pct }}% susceptible, {{ non_pct }}% not susceptible">
+          <svg viewBox="0 0 42 42" class="report-pie">
+            {% if sus_pct > 0 %}
+            <circle r="15.9155" cx="21" cy="21" fill="transparent"
+                    stroke="var(--accent-red, #ef4444)" stroke-width="5"
+                    stroke-dasharray="{{ sus_pct }} 100" stroke-dashoffset="25"></circle>
+            {% endif %}
+            {% if non_pct > 0 %}
+            <circle r="15.9155" cx="21" cy="21" fill="transparent"
+                    stroke="var(--accent-green, #22c55e)" stroke-width="5"
+                    stroke-dasharray="{{ non_pct }} 100"
+                    stroke-dashoffset="{{ 25 - sus_pct }}"></circle>
+            {% endif %}
+          </svg>
+          <div class="report-pie-legend">
+            <div class="report-legend-item report-legend-susceptible">
+              <span class="report-legend-dot"></span>
+              <div>
+                <strong>Susceptible</strong>
+                <small>{{ sus_count }} ({{ sus_pct }}%)</small>
+              </div>
+            </div>
+            <div class="report-legend-item report-legend-non">
+              <span class="report-legend-dot"></span>
+              <div>
+                <strong>At or above Gold</strong>
+                <small>{{ non_count }} ({{ non_pct }}%)</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <p class="admin-muted">No student data to report yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="admin-panel report-summary-panel">
+      <div class="admin-panel-heading"><h2>Summary</h2></div>
+      <div class="report-summary-stats">
+        <div class="report-stat report-stat-susceptible">
+          <strong>{{ sus_count }}</strong>
+          <span>Susceptible</span>
+          <small>Bronze or Silver badge</small>
+        </div>
+        <div class="report-stat report-stat-non">
+          <strong>{{ non_count }}</strong>
+          <span>At or above Gold</span>
+          <small>Gold or Platinum badge</small>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="admin-panel report-list-panel">
+    <div class="admin-panel-heading">
+      <h2>Susceptible students</h2>
+      <form method="get" id="report_filters" class="ranking-filters" action="{{ url_for('admin.report') }}">
+        <input type="search" class="admin-input ranking-search" name="q" value="{{ q or '' }}" placeholder="Search by name..." aria-label="Search students" autocomplete="off">
+        <select class="admin-input ranking-select" name="badge">
+          <option value="" {% if not badge_filter %}selected{% endif %}>All badges</option>
+          {% for badge, title in badges.items() %}
+            <option value="{{ badge }}" {% if badge_filter == badge %}selected{% endif %}>{{ title }} ({{ badge }})</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+
+    <div id="report_results">
+      {% if susceptible %}
+        <div class="ranking-list report-list">
+          {% for student in susceptible %}
+            <div class="ranking-row">
+              <strong class="ranking-position">{{ pagination.start_rank + loop.index }}</strong>
+              <div class="ranking-name">
+                <strong>{{ student['full_name'] }}{% if not student['is_active'] %} <span class="suspended-tag">suspended</span>{% endif %}</strong>
+                <small>{{ student['grade_section'] or 'No grade' }} · {{ student['current_title'] }}</small>
+              </div>
+              <div class="ranking-stats">
+                <strong>{{ student['points'] }} <small>pts</small></strong>
+                <span class="ranking-badge badge-{{ student['current_badge']|lower }}">{{ student['current_badge'] }}</span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if pagination.total_pages > 1 %}
+          <div class="ranking-pagination">
+            {% if pagination.has_prev %}
+              <a class="btn btn-sm btn-outline" href="{{ pagination.prev_url }}">Previous</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline disabled">Previous</span>
+            {% endif %}
+            <span class="ranking-page-info">Page {{ pagination.page }} of {{ pagination.total_pages }} · {{ pagination.total }} student{{ 's' if pagination.total != 1 else '' }}</span>
+            {% if pagination.has_next %}
+              <a class="btn btn-sm btn-outline" href="{{ pagination.next_url }}">Next</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline disabled">Next</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% else %}
+        <p class="admin-muted">
+          {% if total > 0 %}No students match the current filter.{% else %}Student rankings will appear after students register and take missions.{% endif %}
+        </p>
+      {% endif %}
+    </div>
+  </section>
+</section>
+
+<script>
+(function() {
+  const form = document.getElementById('report_filters');
+  const results = document.getElementById('report_results');
+  if (!form || !results) return;
+
+  const qInput = form.querySelector('input[name="q"]');
+  const badgeSelect = form.querySelector('select[name="badge"]');
+  let debounceTimer = null;
+  let isSearching = false;
+
+  function updateUrl(params) {
+    const query = params.toString();
+    const cleanUrl = form.action + (query ? '?' + query : '');
+    history.replaceState({ path: cleanUrl }, '', cleanUrl);
+  }
+
+  function doSearch() {
+    if (isSearching) return;
+    isSearching = true;
+
+    const params = new URLSearchParams(new FormData(form));
+    if (!params.get('q')) params.delete('q');
+    if (!params.get('badge')) params.delete('badge');
+
+    const query = params.toString();
+    const url = form.action + (query ? '?' + query : '');
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(response) {
+        if (!response.ok) throw new Error('Search failed');
+        return response.text();
+      })
+      .then(function(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newResults = doc.getElementById('report_results');
+        if (newResults) {
+          results.innerHTML = newResults.innerHTML;
+        }
+        updateUrl(params);
+      })
+      .catch(function(err) {
+        console.error('Live search error:', err);
+      })
+      .finally(function() {
+        isSearching = false;
+      });
+  }
+
+  function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 250);
+  }
+
+  if (qInput) {
+    qInput.addEventListener('input', scheduleSearch);
+  }
+
+  if (badgeSelect) {
+    badgeSelect.addEventListener('change', doSearch);
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    doSearch();
+  });
+})();
+</script>
+{% endblock %}

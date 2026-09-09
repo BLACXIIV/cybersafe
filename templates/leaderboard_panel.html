@@ -1,6 +1,5 @@
 {% set scopes = [
-  ('section', 'My Section', my_section or 'No section yet'),
-  ('grade', 'My Grade', ('Grade ' ~ my_grade) if my_grade else 'No grade yet'),
+  ('grade', 'My Grade', my_grade or 'No grade yet'),
   ('overall', 'Overall', 'All students')
 ] %}
 
@@ -21,8 +20,7 @@
 </div>
 
 <p class="lb-scope-hint">
-  {% if scope == 'section' %}{{ my_section or 'You have no section yet' }}
-  {% elif scope == 'grade' %}{% if my_grade %}Grade {{ my_grade }} — all sections{% else %}You have no grade yet{% endif %}
+  {% if scope == 'grade' %}{% if my_grade %}Grade {{ my_grade }}{% else %}You have no grade yet{% endif %}
   {% else %}Every Cyber Guardian in the school{% endif %}
   · {{ rows|length }} student{{ 's' if rows|length != 1 else '' }}
 </p>
@@ -32,11 +30,11 @@
     {% for row in rows %}
       <div class="ranking-row lb-row{% if row.id == g.user['id'] %} is-me{% endif %}">
         <strong class="ranking-position">
-          {% if row.position == 1 %}{{ lucide('crown', size=16) }}{% else %}{{ row.position }}{% endif %}
+          {% if row.position == 1 and not all_tied %}{{ lucide('crown', size=16) }}{% else %}{{ row.position }}{% endif %}
         </strong>
         <div class="ranking-name">
           <strong>{{ row.full_name }}{% if row.id == g.user['id'] %} <span class="lb-you">you</span>{% endif %}</strong>
-          <small>{{ row.grade_section or 'No section' }} · {{ row.title }}</small>
+          <small>{{ row.grade_section or 'No grade' }} · {{ row.title }}</small>
         </div>
         <div class="ranking-stats">
           <strong>{{ row.points }} <small>pts</small></strong>
