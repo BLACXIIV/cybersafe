@@ -13,7 +13,7 @@ import network_access
 
 COOLDOWN_MINUTES = 5
 
-VOUCHER_DURATION_SECONDS = 5 * 60 * 60  # keep in sync with the "+5 hours" SQL below
+VOUCHER_DURATION_SECONDS = 1 * 60 * 60  # keep in sync with the "+1 hours" SQL below
 
 bp = Blueprint("levels", __name__, url_prefix="/levels")
 
@@ -376,7 +376,7 @@ def _activate_voucher(db, voucher_row):
     db.execute(
         """UPDATE vouchers
            SET used_at = CURRENT_TIMESTAMP,
-               expires_at = datetime('now', '+5 hours'),
+               expires_at = datetime('now', '+1 hours'),
                ip_address = ?,
                mac_address = ?
            WHERE id = ?""",
