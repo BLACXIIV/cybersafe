@@ -15,7 +15,6 @@ A Flask + SQLite web application for student cybersecurity training. The platfor
 - **Vouchers**: earn internet-access vouchers by answering mission questions correctly; each active voucher lasts **1 hour** and can be toggled on/off from the dashboard.
 
 ### Admin
-- **Administrator account**: LRN `123456789012`, password `admin`.
 - **School branding**: update school name and logo.
 - **Student management**: register individual students (LRN, first name, surname, grade level) or bulk-import from an Excel file.
 - **Grade management**: add/edit grade levels.
