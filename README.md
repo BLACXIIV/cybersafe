@@ -1,30 +1,65 @@
-# Cyber-S.A.F.E. — Base Code (Flask + SQLite)
+# Cyber-S.A.F.E.
 
-A responsive starter for the Cyber-S.A.F.E. system: sign up, log in, and a
-landing/dashboard page. Built so mission logic, adaptive questions, badges,
-and the captive-portal/voucher system can be layered on top later without
-restructuring the auth code.
+Cyber-S.A.F.E. — Development of an Adaptive Gamified Cybersecurity Awareness Gateway System with Voucher-Based Internet Access Authorization for Junior High School Students.
+
+A Flask + SQLite web application for student cybersecurity training. The platform uses LRN-based accounts, randomized mission questions, points, badge ranks, and voucher-gated internet access.
+
+## Features
+
+### Students
+- **LRN-based login**: 12-digit Learner Reference Number (LRN) entry with OTP-style boxes.
+- **First-time login**: if no password exists, the student must create a strong password with a live strength indicator.
+- **Normal login**: LRN + password for returning students.
+- **Missions/levels**: randomized cybersecurity questions per mission with immediate feedback and a short cooldown after incorrect answers.
+- **Points & badges**: progress through Bronze, Silver, Gold, and Platinum ranks.
+- **Vouchers**: earn internet-access vouchers by answering mission questions correctly; each active voucher lasts **1 hour** and can be toggled on/off from the dashboard.
+
+### Admin
+- **Administrator account**: LRN `123456789012`, password `admin`.
+- **School branding**: update school name and logo.
+- **Student management**: register individual students (LRN, first name, surname, grade level) or bulk-import from an Excel file.
+- **Grade management**: add/edit grade levels.
+- **Rankings & reports**: view student point rankings and a susceptibility/readiness pie chart.
+- **Password reset**: reset a student password and force a new password on next login.
+
+### Technical
+- **Responsive UI**: mobile-first CSS with breakpoints for tablet and desktop.
+- **Rate limiting**: Flask-Limiter with per-IP and per-user limits and a custom 429 page.
+- **Password policy**: enforced server-side; checks length, case, digits, symbols, common/keyboard patterns, and personal information.
+- **Network integration**: optional Pi-based firewall gating via `network/cybersafe-grant-access` (see `NETWORK_SETUP.md`).
+- **Tests**: pytest suite in `tests/test_app.py`.
 
 ## Project structure
 
 ```
 cybersafe/
-├── app.py                  # Entry point / app factory
-├── auth.py                 # Signup, login, logout, login_required decorator
-├── main.py                 # Landing page + dashboard routes
-├── config.py                # App config (secret key, DB path)
-├── requirements.txt
+├── app.py                  # Application factory / entry point
+├── auth.py                 # Login, logout, two-step LRN authentication
+├── main.py                 # Landing page, dashboard, internet access, vouchers
+├── levels.py               # Mission/level questions, voucher activation
+├── admin.py                # Admin dashboard, reports, student import/reset
+├── security.py             # Password validation and policy helpers
+├── ranks.py                # Badge/rank thresholds
+├── network_access.py       # Bridge to the Pi firewall helper
+├── config.py               # Configuration (DB path, secret key, etc.)
+├── extensions.py           # Shared Flask extensions (limiter)
+├── requirements.txt        # Python dependencies
 ├── database/
-│   ├── db.py                # SQLite connection helpers + `flask init-db`
-│   └── schema.sql           # users table (extend with missions, questions, etc.)
-├── templates/
-│   ├── base.html            # Shared layout, navbar, flash messages
-│   ├── index.html           # Landing page (logged out)
-│   ├── signup.html
-│   ├── login.html
-│   └── dashboard.html       # Landing page (logged in)
+│   ├── db.py               # SQLite helpers and `flask init-db`
+│   ├── schema.sql          # Database schema
+│   └── seed_questions.py   # Sample mission questions
+├── network/                # Pi captive-portal helpers
+│   ├── cybersafe-grant-access
+│   ├── reconcile_access.py
+│   ├── setup_ap.sh
+│   └── systemd/
+├── tests/
+│   └── test_app.py         # pytest suite
+├── templates/              # Jinja2 templates
 └── static/
-    └── css/style.css        # Mobile-first responsive styling
+    ├── css/style.css
+    ├── css/hero.css
+    └── js/password-strength.js
 ```
 
 ## Setup
@@ -32,65 +67,41 @@ cybersafe/
 ```bash
 cd cybersafe
 python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS/Linux
 pip install -r requirements.txt
 python app.py
 ```
 
-The first run auto-creates `database/cybersafe.db` from `schema.sql`.
-Then open **http://127.0.0.1:5000**.
+The first run auto-creates `database/cybersafe.db` from `schema.sql` and seeds the admin account.
 
-### Administrator
+Open **http://127.0.0.1:5000**.
 
-Use the same login page at **/login** with username `admin` and password
-`admin`. Successful administrator login redirects to **/admin/**, where you
-can update the school name and logo, manage grade/section options, and view
-the student points ranking.
+## Administrator login
+
+Use the same login page at **/login**:
+
+- LRN: `123456789012`
+- Password: `admin`
 
 Change the default administrator password before deploying this application.
 
-To reset the database at any point:
+## Running tests
+
+```bash
+pytest -q
+```
+
+## Database reset
 
 ```bash
 rm database/cybersafe.db
 flask --app app init-db
 ```
 
-## What's included
+## Security notes
 
-- **Signup** (`/signup`) — full name, username, email, grade/section, password
-  (hashed with Werkzeug's `generate_password_hash`, never stored in plain text).
-- **Login** (`/login`) — by username or email, session-based auth.
-- **Logout** (`/logout`).
-- **Landing page** (`/`) — marketing/intro view for logged-out visitors,
-  automatically swaps to the dashboard once logged in.
-- **Dashboard** (`/dashboard`) — protected route (`@login_required`), shows
-  points, level, and a placeholder mission list ready to be wired to real data.
-- **Responsive layout** — mobile-first CSS with breakpoints at 640px (tablet)
-  and 1024px (laptop/desktop): forms stack on phones and go side-by-side on
-  larger screens, the stat grid goes from 2 columns → 4, feature cards go
-  1 → 2 → 3 columns.
-
-## Security notes for your write-up
-
-- Passwords are hashed (`werkzeug.security`), never stored raw.
-- `SECRET_KEY` in `config.py` is a dev placeholder — set a real one via the
-  `CYBERSAFE_SECRET_KEY` environment variable before any real deployment.
-- Password policy lives in `security.py` and is enforced server-side on signup:
-  minimum 10 characters, must mix lowercase, uppercase, numbers, and symbols,
-  and is rejected if it matches a common-password blocklist (leetspeak-folded,
-  so `P@ssw0rd` is caught), contains a keyboard walk or run like `qwer`/`1234`,
-  repeats a short pattern, or is built from the user's own name, username, or
-  email. The signup page mirrors the same rules as a live checklist, but the
-  server check is authoritative.
-- Still outstanding: rate limiting and CSRF protection (e.g. `Flask-WTF`)
-  before this touches a real school network.
-
-## Suggested next steps
-
-1. Add `missions`, `questions`, and `attempts` tables to `schema.sql`.
-2. Build a `missions.py` blueprint with the adaptive question-selection logic.
-3. Add a `vouchers` table + generation logic for the Internet-access clearance step.
-4. Add an `admin.py` blueprint gated by a `role` column on `users`.
-5. Swap the placeholder progress/mission data in `dashboard.html` for real
-   queries once the missions table exists.
+- Passwords are hashed with `werkzeug.security.generate_password_hash`; plain-text passwords are never stored.
+- `SECRET_KEY` in `config.py` is a development placeholder. Set a real key via the `CYBERSAFE_SECRET_KEY` environment variable before any real deployment.
+- Rate limiting is active in production; the test fixture disables it to avoid test pollution.
+- For the Pi captive-portal network setup, see `NETWORK_SETUP.md`.
