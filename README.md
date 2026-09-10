@@ -79,12 +79,7 @@ Open **http://127.0.0.1:5000**.
 
 ## Administrator login
 
-Use the same login page at **/login**:
-
-- LRN: `123456789012`
-- Password: `admin`
-
-Change the default administrator password before deploying this application.
+Use the same login page at **/login**. The first account with the `admin` role is created automatically on startup; change the default administrator password before deploying this application.
 
 ## Running tests
 
