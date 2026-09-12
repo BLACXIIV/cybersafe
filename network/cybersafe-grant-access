@@ -1,4 +1,3 @@
-cat > network/cybersafe-grant-access << 'EOF'
 #!/bin/bash
 # cybersafe-grant-access — the ONLY command the app is allowed to run as
 # root (see sudoers-cybersafe). Keep this file short and paranoid: it
@@ -45,4 +44,3 @@ case "$mode" in
         exit 1
         ;;
 esac
-EOF
