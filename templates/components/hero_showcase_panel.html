@@ -1,0 +1,91 @@
+{# Hero showcase carousel — badge design preview shown atop every admin screen. #}
+{% from "hero_avatar.html" import render_hero_avatar %}
+<section class="admin-panel hero-showcase-panel">
+  <div class="admin-panel-heading"><h2>Hero Showcase</h2><span>Badge designs</span></div>
+  <div class="hero-showcase" data-active="0">
+    {% set badge_titles = {'Bronze': 'Cyber Rookie', 'Silver': 'Cyber Sentinel', 'Gold': 'Cyber Guardian', 'Platinum': 'Cyber Master'} %}
+    <div class="hero-showcase-carousel">
+      <button type="button" class="hero-showcase-arrow hero-showcase-prev" aria-label="Previous hero">{{ lucide('chevron-left', size=22) }}</button>
+      <div class="hero-showcase-viewport">
+        <div class="hero-showcase-track" data-start="4">
+          {% for set in range(3) %}
+            {% for rank in ['Bronze', 'Silver', 'Gold', 'Platinum'] %}
+              <div class="hero-showcase-slide" data-rank="{{ rank }}" data-index="{{ loop.index0 }}">
+                <div class="hero-showcase-avatar">{{ render_hero_avatar(rank) }}</div>
+                <strong class="hero-showcase-title">{{ badge_titles[rank] }}</strong>
+                <span class="hero-showcase-rank">{{ rank }}</span>
+              </div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      </div>
+      <button type="button" class="hero-showcase-arrow hero-showcase-next" aria-label="Next hero">{{ lucide('chevron-right', size=22) }}</button>
+    </div>
+  </div>
+</section>
+
+<script>
+(function() {
+  const showcase = document.querySelector('.hero-showcase');
+  if (!showcase) return;
+  const track = showcase.querySelector('.hero-showcase-track');
+  const prev = showcase.querySelector('.hero-showcase-prev');
+  const next = showcase.querySelector('.hero-showcase-next');
+  const total = 4;
+  if (!track || !prev || !next || !total) return;
+  const slides = track.querySelectorAll('.hero-showcase-slide');
+  const slideCount = slides.length;
+  const startPos = parseInt(track.dataset.start || '4', 10);
+  let pos = startPos;
+  let isJumping = false;
+  function realIndex(p) { return ((p % total) + total) % total; }
+  function slideWidth() {
+    return parseFloat(getComputedStyle(showcase).getPropertyValue('--slide-width')) || 33.333;
+  }
+  function setTransform(p, animate) {
+    const w = slideWidth();
+    track.style.transition = animate ? 'transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)' : 'none';
+    track.style.transform = 'translateX(' + ((100 - w) / 2 - p * w) + '%)';
+  }
+  function updateDots(p) {
+    const real = realIndex(p);
+    slides.forEach(function(s, i) { s.classList.toggle('active', i === p); });
+    showcase.setAttribute('data-active', real);
+  }
+  function goTo(p) {
+    if (isJumping) return;
+    pos = p;
+    setTransform(pos, true);
+    updateDots(pos);
+    if (pos < total || pos >= slideCount - total) {
+      isJumping = true;
+      setTimeout(function() {
+        if (pos < total) pos += total;
+        else pos -= total;
+        setTransform(pos, false);
+        updateDots(pos);
+        isJumping = false;
+      }, 650);
+    }
+  }
+  prev.addEventListener('click', function() { goTo(pos - 1); });
+  next.addEventListener('click', function() { goTo(pos + 1); });
+  setTransform(startPos, false);
+  updateDots(startPos);
+  let autoTimer = null;
+  let isPaused = false;
+  function startAuto() {
+    if (autoTimer) clearTimeout(autoTimer);
+    autoTimer = setTimeout(function() { if (!isPaused && !isJumping) { goTo(pos + 1); startAuto(); } }, 5000);
+  }
+  function stopAuto() {
+    if (autoTimer) clearTimeout(autoTimer);
+    autoTimer = null;
+  }
+  showcase.addEventListener('mouseenter', function() { isPaused = true; stopAuto(); });
+  showcase.addEventListener('mouseleave', function() { isPaused = false; startAuto(); });
+  showcase.addEventListener('touchstart', function() { isPaused = true; stopAuto(); }, { passive: true });
+  showcase.addEventListener('touchend', function() { isPaused = false; startAuto(); });
+  startAuto();
+})();
+</script>

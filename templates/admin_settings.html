@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Settings - Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<section class="admin-shell">
+  {% set admin_title = 'Settings' %}
+  {% set admin_subtitle = 'School identity and the grade levels used at registration.' %}
+  {% include "components/admin_header.html" %}
+
+  <div class="admin-grid">
+    <section class="admin-panel">
+      <div class="admin-panel-heading"><h2>School branding</h2><span>Identity</span></div>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="action" value="branding">
+        <label class="admin-label" for="school_name">School name</label>
+        <input class="admin-input" id="school_name" name="school_name" value="{{ settings['school_name'] }}" required>
+        <label class="admin-label" for="school_logo">School logo</label>
+        <div class="logo-upload">
+          <input class="logo-file-input" id="school_logo" name="school_logo" type="file" accept="image/png,image/jpeg,image/webp,image/gif">
+          <label class="logo-dropzone" for="school_logo" id="logo_dropzone">
+            <span class="logo-dropzone-icon">{{ lucide('upload', size=28) }}</span>
+            <span class="logo-dropzone-title">Drop logo here or click to browse</span>
+            <span class="logo-dropzone-hint">PNG, JPG, WEBP, GIF</span>
+          </label>
+
+          <div class="logo-preview-row">
+            <div class="logo-preview-frame">
+              <img id="logo_preview_img"
+                   class="school-logo-preview{% if settings['logo_path'] %} is-visible{% endif %}"
+                   {% if settings['logo_path'] %}src="{{ url_for('static', filename=settings['logo_path']) }}"{% endif %}
+                   alt="School logo preview">
+              <span id="logo_preview_placeholder" class="logo-preview-placeholder{% if settings['logo_path'] %} is-hidden{% endif %}">{{ lucide('image', size=24) }}</span>
+            </div>
+            <div class="logo-preview-meta">
+              <span class="logo-preview-label">Selected file</span>
+              <span id="logo_file_name" class="logo-file-name">{{ settings['logo_path'].split('/')[-1] if settings['logo_path'] else 'No file chosen' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" type="submit">Save branding</button>
+      </form>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-heading"><h2>Grade levels</h2><span>{{ grades|length }} grade{{ 's' if grades|length != 1 else '' }}</span></div>
+      <p class="admin-muted">Used when registering students from the learner data sheet.</p>
+      <form class="grade-form" method="post" style="margin:0.75rem 0;">
+        <input type="hidden" name="action" value="add_grade">
+        <input class="admin-input" name="grade_name" placeholder="e.g. Grade 10" required>
+        <button class="btn btn-primary" type="submit">Add</button>
+      </form>
+      <div class="grade-list">
+        {% for grade in grades %}
+          <div class="grade-row">
+            <span>{{ grade['name'] }}</span>
+            <form method="post"><input type="hidden" name="action" value="delete_grade"><input type="hidden" name="grade_id" value="{{ grade['id'] }}"><button class="text-button" type="submit">Remove</button></form>
+          </div>
+        {% else %}<p class="admin-muted">No grade levels added yet.</p>{% endfor %}
+      </div>
+    </section>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin-uploads.js') }}"></script>
+<script>
+(function() {
+  const previewImg = document.getElementById('logo_preview_img');
+  const placeholder = document.getElementById('logo_preview_placeholder');
+  const fileName = document.getElementById('logo_file_name');
+  if (!previewImg || !placeholder || !fileName) return;
+
+  wireDropzone('school_logo', 'logo_dropzone', function(file) {
+    fileName.textContent = file.name;
+    if (file.type.startsWith('image/')) {
+      previewImg.src = URL.createObjectURL(file);
+      previewImg.classList.add('is-visible');
+      placeholder.classList.add('is-hidden');
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+{% block title %}Students - Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<section class="admin-shell">
+  {% set admin_title = 'Students' %}
+  {% set admin_subtitle = 'Register students, then manage their accounts from the roster.' %}
+  {% include "components/admin_header.html" %}
+
+  <section class="admin-panel">
+    <div class="admin-panel-heading"><h2>Register students</h2></div>
+    <div class="register-grid">
+      <div class="register-col">
+        <h3 class="register-col-heading">Manual registration</h3>
+        <form method="post">
+          <input type="hidden" name="action" value="add_student">
+          <label class="admin-label" for="reg_lrn">LRN</label>
+          <input class="admin-input" id="reg_lrn" name="lrn" placeholder="131407160075" required>
+          <div class="form-row" style="grid-template-columns:1fr 1fr; gap:0.75rem; margin-top:0.5rem;">
+            <div>
+              <label class="admin-label" for="reg_first">First name</label>
+              <input class="admin-input" id="reg_first" name="first_name" placeholder="Juan" required>
+            </div>
+            <div>
+              <label class="admin-label" for="reg_last">Surname</label>
+              <input class="admin-input" id="reg_last" name="last_name" placeholder="Dela Cruz" required>
+            </div>
+          </div>
+          <label class="admin-label" for="reg_grade" style="margin-top:0.5rem;">Grade level</label>
+          <select class="admin-input" id="reg_grade" name="grade_name" required>
+            <option value="">Select grade</option>
+            {% for grade in grades %}
+              <option value="{{ grade['name'] }}">{{ grade['name'] }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn btn-primary" type="submit" style="margin-top:1rem;">Register</button>
+        </form>
+      </div>
+
+      <div class="register-col">
+        <h3 class="register-col-heading">Bulk import from Excel</h3>
+        <form method="post" enctype="multipart/form-data">
+          <input type="hidden" name="action" value="import_students">
+          <div class="excel-upload">
+            <input class="excel-file-input" id="excel_file" name="student_file" type="file" accept=".xlsx" required>
+            <label class="excel-dropzone" for="excel_file" id="excel_dropzone">
+              <span class="excel-dropzone-icon">{{ lucide('upload', size=28) }}</span>
+              <span class="excel-dropzone-title">Drop Excel file here or click to browse</span>
+              <span class="excel-dropzone-hint">XLSX · Learner Reference Number, First Name, Last Name, Grade Level</span>
+            </label>
+            <div class="excel-file-meta">
+              <span class="excel-file-label">Selected file</span>
+              <span id="excel_file_name" class="excel-file-name">No file chosen</span>
+            </div>
+            <button class="btn btn-outline" type="submit">{{ lucide('upload', size=16) }} Import</button>
+            <p class="excel-template-hint">
+              Don't have a layout?
+              <a class="excel-template-link" href="{{ url_for('admin.download_student_template') }}" download>{{ lucide('download', size=14) }} Download XLSX template</a>
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="admin-panel ranking-panel">
+    <div class="admin-panel-heading">
+      <h2>Student roster</h2>
+      <form method="get" id="ranking_filters" class="ranking-filters" action="{{ url_for('admin.students') }}">
+        <input type="search" class="admin-input ranking-search" name="q" value="{{ q or '' }}" placeholder="Search by name..." aria-label="Search students" autocomplete="off">
+        <select class="admin-input ranking-select" name="badge">
+          <option value="" {% if not badge_filter %}selected{% endif %}>All badges</option>
+          {% for badge, title in badges.items() %}
+            <option value="{{ badge }}" {% if badge_filter == badge %}selected{% endif %}>{{ title }} ({{ badge }})</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+    <div id="ranking_results">
+      {% if rankings %}
+        <div class="ranking-list">
+          {% for student in rankings %}
+            <div class="ranking-row">
+              <strong class="ranking-position">{{ pagination.start_rank + loop.index }}</strong>
+              <div class="ranking-name">
+                <strong>{{ student['full_name'] }}{% if not student['is_active'] %} <span class="suspended-tag">suspended</span>{% endif %}</strong>
+                <small>{{ student['grade_section'] or 'No grade' }} · {{ student['current_title'] }}</small>
+              </div>
+              <div class="ranking-stats">
+                <strong>{{ student['points'] }} <small>pts</small></strong>
+                <span class="ranking-badge badge-{{ student['current_badge']|lower }}">{{ student['current_badge'] }}</span>
+              </div>
+              <div class="ranking-actions">
+                <button type="button" class="btn btn-sm btn-outline btn-icon pw-reset-trigger"
+                        data-user-id="{{ student['id'] }}" data-user-name="{{ student['full_name'] }}"
+                        aria-label="Change password for {{ student['full_name'] }}" title="Change password">
+                  {{ lucide('key-round', size=16) }}
+                </button>
+                <form method="post" class="ranking-toggle">
+                  <input type="hidden" name="action" value="toggle_user">
+                  <input type="hidden" name="user_id" value="{{ student['id'] }}">
+                  <button type="submit" class="btn btn-sm btn-icon {% if student['is_active'] %}btn-danger{% else %}btn-success{% endif %}"
+                          aria-label="{% if student['is_active'] %}Suspend{% else %}Restore{% endif %} {{ student['full_name'] }}"
+                          title="{% if student['is_active'] %}Suspend{% else %}Restore{% endif %}">
+                    {% if student['is_active'] %}{{ lucide('ban', size=16) }}{% else %}{{ lucide('rotate-ccw', size=16) }}{% endif %}
+                  </button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if pagination.total_pages > 1 %}
+          <div class="ranking-pagination">
+            {% if pagination.has_prev %}
+              <a class="btn btn-sm btn-outline" href="{{ pagination.prev_url }}">Previous</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline disabled">Previous</span>
+            {% endif %}
+            <span class="ranking-page-info">Page {{ pagination.page }} of {{ pagination.total_pages }} · {{ pagination.total }} student{{ 's' if pagination.total != 1 else '' }}</span>
+            {% if pagination.has_next %}
+              <a class="btn btn-sm btn-outline" href="{{ pagination.next_url }}">Next</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline disabled">Next</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% else %}
+        <p class="admin-muted">
+          {% if q or badge_filter %}No students match the current filters.{% else %}Registered students will appear here.{% endif %}
+        </p>
+      {% endif %}
+    </div>
+  </section>
+</section>
+
+<div id="pw-reset-modal" class="modal-overlay" style="display:none;" aria-hidden="true">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="pw-reset-title">
+    <h2 id="pw-reset-title" style="margin:0 0 0.25rem; font-size:1rem;">Change Password</h2>
+    <p id="pw-reset-for" class="admin-muted" style="margin:0 0 1rem; font-size:0.8rem;"></p>
+    <form method="post" action="{{ url_for('admin.students') }}">
+      <input type="hidden" name="action" value="reset_password">
+      <input type="hidden" name="user_id" id="pw-reset-user-id" value="">
+      <div class="form-group">
+        <label for="pw-reset-new">New password</label>
+        <input type="password" id="pw-reset-new" name="new_password" autocomplete="new-password" required>
+      </div>
+      <div class="form-group">
+        <label for="pw-reset-confirm">Confirm password</label>
+        <input type="password" id="pw-reset-confirm" name="confirm_password" autocomplete="new-password" required>
+      </div>
+      <div class="pw-policy" id="pw-reset-policy">
+        <div class="pw-meter" aria-hidden="true"><span id="pw-reset-meter-fill"></span></div>
+        <p class="pw-meter-label">Password strength: <strong id="pw-reset-meter-text">—</strong></p>
+        <ul class="pw-rules" id="pw-reset-rules">
+          <li data-rule="length">At least 10 characters</li>
+          <li data-rule="lower">A lowercase letter</li>
+          <li data-rule="upper">An uppercase letter</li>
+          <li data-rule="number">A number</li>
+          <li data-rule="symbol">A symbol, such as ! ? @ # $ % or *</li>
+          <li data-rule="uncommon">Not a common or easily guessed password</li>
+          <li data-rule="personal">Nothing from the student's name, username, or email</li>
+          <li data-rule="match">Both password fields match</li>
+        </ul>
+      </div>
+      <div style="display:flex; gap:0.5rem; justify-content:flex-end;">
+        <button type="button" class="btn btn-outline btn-sm" id="pw-reset-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save Password</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin-uploads.js') }}"></script>
+<script>
+(function() {
+  const fileName = document.getElementById('excel_file_name');
+  wireDropzone('excel_file', 'excel_dropzone', function(file) {
+    fileName.textContent = file.name;
+  });
+})();
+</script>
+
+<script src="{{ url_for('static', filename='js/password-strength.js') }}"></script>
+<script>
+(function() {
+  const modal = document.getElementById('pw-reset-modal');
+  const cancel = document.getElementById('pw-reset-cancel');
+  const userIdField = document.getElementById('pw-reset-user-id');
+  const forLabel = document.getElementById('pw-reset-for');
+  const results = document.getElementById('ranking_results');
+  const newInput = document.getElementById('pw-reset-new');
+  const confirmInput = document.getElementById('pw-reset-confirm');
+  const rules = document.getElementById('pw-reset-rules');
+  const meterFill = document.getElementById('pw-reset-meter-fill');
+  const meterText = document.getElementById('pw-reset-meter-text');
+  if (!modal || !cancel || !userIdField || !results) return;
+
+  let activeName = '';
+  let strength = null;
+
+  function clearInputs() {
+    modal.querySelectorAll('input[type="password"]').forEach(function(input) { input.value = ''; });
+    if (strength && strength.render) strength.render();
+  }
+
+  function close() {
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+    clearInputs();
+  }
+
+  // Rows are replaced by the live search, so delegate from the container.
+  results.addEventListener('click', function(e) {
+    const trigger = e.target.closest('.pw-reset-trigger');
+    if (!trigger) return;
+    activeName = trigger.dataset.userName;
+    userIdField.value = trigger.dataset.userId;
+    forLabel.textContent = 'For ' + activeName;
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    newInput.focus();
+    if (!strength && newInput && confirmInput && rules) {
+      strength = window.initPasswordStrength({
+        password: newInput,
+        confirm: confirmInput,
+        rules: rules,
+        meterFill: meterFill,
+        meterText: meterText,
+        personal: function() { return [activeName]; }
+      });
+    } else if (strength && strength.render) {
+      strength.render();
+    }
+  });
+
+  cancel.addEventListener('click', close);
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) close();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modal.style.display === 'flex') close();
+  });
+})();
+</script>
+
+<script>
+(function() {
+  const form = document.getElementById('ranking_filters');
+  const results = document.getElementById('ranking_results');
+  if (!form || !results) return;
+
+  const qInput = form.querySelector('input[name="q"]');
+  const badgeSelect = form.querySelector('select[name="badge"]');
+  let debounceTimer = null;
+  let isSearching = false;
+
+  function updateUrl(params) {
+    const query = params.toString();
+    const cleanUrl = form.action + (query ? '?' + query : '');
+    history.replaceState({ path: cleanUrl }, '', cleanUrl);
+  }
+
+  function doSearch() {
+    if (isSearching) return;
+    isSearching = true;
+
+    const params = new URLSearchParams(new FormData(form));
+    if (!params.get('q')) params.delete('q');
+    if (!params.get('badge')) params.delete('badge');
+
+    const query = params.toString();
+    const url = form.action + (query ? '?' + query : '');
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(response) {
+        if (!response.ok) throw new Error('Search failed');
+        return response.text();
+      })
+      .then(function(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newResults = doc.getElementById('ranking_results');
+        if (newResults) {
+          results.innerHTML = newResults.innerHTML;
+        }
+        updateUrl(params);
+      })
+      .catch(function(err) {
+        console.error('Live search error:', err);
+      })
+      .finally(function() {
+        isSearching = false;
+      });
+  }
+
+  function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 250);
+  }
+
+  if (qInput) {
+    qInput.addEventListener('input', scheduleSearch);
+  }
+
+  if (badgeSelect) {
+    badgeSelect.addEventListener('change', doSearch);
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    doSearch();
+  });
+})();
+</script>
+{% endblock %}

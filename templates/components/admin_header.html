@@ -1,0 +1,13 @@
+{# Shared admin page header: heading + hero showcase + section tabs.
+   Set admin_title / admin_subtitle before including. #}
+<header class="admin-heading">
+  <div>
+    <p class="eyebrow">Control center</p>
+    <h1>{{ admin_title }}</h1>
+    <p>{{ admin_subtitle }}</p>
+  </div>
+  <span class="admin-badge">Administrator</span>
+</header>
+
+{% include "components/hero_showcase_panel.html" %}
+{% include "components/admin_tabs.html" %}

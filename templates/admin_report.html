@@ -1,20 +1,82 @@
 {% extends "base.html" %}
-{% from "hero_avatar.html" import render_hero_avatar %}
-{% block title %}Susceptibility Report - Cyber-S.A.F.E.{% endblock %}
+{% block title %}Reports - Cyber-S.A.F.E.{% endblock %}
 
 {% block content %}
 <section class="admin-shell">
-  <header class="admin-heading">
-    <div>
-      <p class="eyebrow">Control center</p>
-      <h1>Susceptibility Report</h1>
-      <p>Students below the Gold badge and the overall readiness breakdown.</p>
-    </div>
-    <span class="admin-badge">Administrator</span>
-  </header>
+  {% set admin_title = 'Reports' %}
+  {% set admin_subtitle = 'Susceptibility, activity, and weak spots — exportable for documentation.' %}
+  {% include "components/admin_header.html" %}
 
-  <div class="admin-grid report-grid">
-    <section class="admin-panel report-chart-panel">
+  <section class="admin-panel report-toolbar-panel">
+    <div class="report-toolbar">
+      <div class="period-chips" role="group" aria-label="Report period">
+        {% for key, label in periods.items() %}
+          <a class="period-chip{% if period == key %} is-active{% endif %}"
+             href="{{ url_for('admin.report', **report_args(period=key)) }}"
+             {% if period == key %}aria-current="true"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </div>
+      <div class="report-export">
+        <a class="btn btn-sm btn-outline" href="{{ url_for('admin.report_export', **report_args(format='xlsx')) }}" download>{{ lucide('file-spreadsheet', size=15) }} Excel</a>
+        <a class="btn btn-sm btn-outline" href="{{ url_for('admin.report_export', **report_args(format='csv')) }}" download>{{ lucide('file-text', size=15) }} CSV</a>
+      </div>
+    </div>
+    <p class="admin-muted report-period-note">Activity metrics scoped to <strong>{{ period_label }}</strong>. Badge and susceptibility status are cumulative.</p>
+  </section>
+
+  <section class="admin-panel" style="margin:1.25rem 0;">
+    <div class="admin-panel-heading"><h2>Overview</h2><span>{{ period_label }}</span></div>
+    <div class="report-kpi-grid">
+      <div class="kpi-card">
+        <strong>{{ total }}</strong>
+        <span>Enrolled</span>
+        <small>{{ new_registrations }} new in period{% if suspended %} · {{ suspended }} suspended{% endif %}</small>
+      </div>
+      <div class="kpi-card kpi-warn">
+        <strong>{{ sus_pct }}%</strong>
+        <span>Susceptible</span>
+        <small>{{ sus_count }} of {{ total }} below Gold</small>
+      </div>
+      <div class="kpi-card">
+        <strong>{{ activity['students'] }}</strong>
+        <span>Active in period</span>
+        <small>{{ activity['answers'] }} answer{{ 's' if activity['answers'] != 1 else '' }} submitted</small>
+      </div>
+      <div class="kpi-card">
+        <strong>{{ avg_points }}</strong>
+        <span>Avg points</span>
+        <small>of {{ max_points }} possible</small>
+      </div>
+      <div class="kpi-card">
+        <strong>{{ activity['points'] }}</strong>
+        <span>Points earned</span>
+        <small>in period</small>
+      </div>
+      <div class="kpi-card">
+        <strong>{{ mastered_all }}</strong>
+        <span>Mastered all</span>
+        <small>{{ level_count }} mission{{ 's' if level_count != 1 else '' }} completed</small>
+      </div>
+      <div class="kpi-card kpi-warn">
+        <strong>{{ never_started }}</strong>
+        <span>Never started</span>
+        <small>no answers yet</small>
+      </div>
+      <div class="kpi-card">
+        <strong>{{ unactivated }}</strong>
+        <span>Password not set</span>
+        <small>never logged in</small>
+      </div>
+      <div class="kpi-card">
+        <strong>{{ vouchers_issued }}</strong>
+        <span>Vouchers issued</span>
+        <small>{{ vouchers_active }} active now</small>
+      </div>
+    </div>
+  </section>
+
+  <div class="admin-grid" style="margin-bottom:1.25rem;">
+    <section class="admin-panel">
       <div class="admin-panel-heading">
         <h2>Readiness breakdown</h2>
         <span>{{ total }} student{{ 's' if total != 1 else '' }}</span>
@@ -57,29 +119,90 @@
       {% endif %}
     </section>
 
-    <section class="admin-panel report-summary-panel">
-      <div class="admin-panel-heading"><h2>Summary</h2></div>
-      <div class="report-summary-stats">
-        <div class="report-stat report-stat-susceptible">
-          <strong>{{ sus_count }}</strong>
-          <span>Susceptible</span>
-          <small>Bronze or Silver badge</small>
+    <section class="admin-panel">
+      <div class="admin-panel-heading"><h2>Badge distribution</h2><span>Cumulative</span></div>
+      {% if total > 0 %}
+        <div class="dist-list">
+          {% for badge, title in badges.items() %}
+            {% set count = badge_dist[badge] %}
+            <div class="dist-row">
+              <span class="dist-label">{{ badge }}<small>{{ title }}</small></span>
+              <span class="dist-bar"><i class="dist-fill dist-{{ badge|lower }}" style="width: {{ (count / total * 100) | round(1) }}%"></i></span>
+              <span class="dist-count">{{ count }}</span>
+            </div>
+          {% endfor %}
         </div>
-        <div class="report-stat report-stat-non">
-          <strong>{{ non_count }}</strong>
-          <span>At or above Gold</span>
-          <small>Gold or Platinum badge</small>
-        </div>
-      </div>
+      {% else %}
+        <p class="admin-muted">No students yet.</p>
+      {% endif %}
     </section>
   </div>
+
+  <div class="admin-grid" style="margin-bottom:1.25rem;">
+    <section class="admin-panel">
+      <div class="admin-panel-heading"><h2>Susceptibility by grade</h2><span>Cumulative</span></div>
+      {% if by_grade %}
+        <div class="dist-list">
+          {% for g in by_grade %}
+            <div class="dist-row">
+              <span class="dist-label">{{ g['name'] }}</span>
+              <span class="dist-bar"><i class="dist-fill dist-sus" style="width: {{ g['pct'] }}%"></i></span>
+              <span class="dist-count">{{ g['sus'] }}/{{ g['total'] }} · {{ g['pct'] }}%</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="admin-muted">No students yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-heading"><h2>Weakest missions</h2><span>{{ period_label }}</span></div>
+      {% if by_mission %}
+        <div class="dist-list">
+          {% for m in by_mission %}
+            <div class="dist-row">
+              <span class="dist-label">Mission {{ m['level_number'] }}<small>{{ m['name'] }}</small></span>
+              <span class="dist-bar"><i class="dist-fill dist-avg" style="width: {{ m['avg_pts'] }}%"></i></span>
+              <span class="dist-count">{{ m['avg_pts'] }} avg · {{ m['misses'] }} miss{{ 'es' if m['misses'] != 1 else '' }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="admin-muted">No answers recorded in this period.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <section class="admin-panel" style="margin-bottom:1.25rem;">
+    <div class="admin-panel-heading"><h2>Most-missed questions</h2><span>{{ period_label }}</span></div>
+    {% if missed_questions %}
+      <div class="missed-list">
+        {% for mq in missed_questions %}
+          <div class="missed-row">
+            <p class="missed-prompt"><strong>M{{ mq['level_number'] }}</strong> {{ mq['prompt'] }}</p>
+            <p class="missed-meta">{{ mq['misses'] }} of {{ mq['answers'] }} answer{{ 's' if mq['answers'] != 1 else '' }} scored zero · avg {{ mq['avg_pts'] }} pts</p>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="admin-muted">No zero-point answers in this period.</p>
+    {% endif %}
+  </section>
 
   <section class="admin-panel report-list-panel">
     <div class="admin-panel-heading">
       <h2>Susceptible students</h2>
       <form method="get" id="report_filters" class="ranking-filters" action="{{ url_for('admin.report') }}">
+        <input type="hidden" name="period" value="{{ period }}">
         <input type="search" class="admin-input ranking-search" name="q" value="{{ q or '' }}" placeholder="Search by name..." aria-label="Search students" autocomplete="off">
-        <select class="admin-input ranking-select" name="badge">
+        <select class="admin-input ranking-select" name="grade" aria-label="Filter by grade">
+          <option value="" {% if not grade_filter %}selected{% endif %}>All grades</option>
+          {% for name in grade_options %}
+            <option value="{{ name }}" {% if grade_filter == name %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+        </select>
+        <select class="admin-input ranking-select" name="badge" aria-label="Filter by badge">
           <option value="" {% if not badge_filter %}selected{% endif %}>All badges</option>
           {% for badge, title in badges.items() %}
             <option value="{{ badge }}" {% if badge_filter == badge %}selected{% endif %}>{{ title }} ({{ badge }})</option>
@@ -100,6 +223,9 @@
               </div>
               <div class="ranking-stats">
                 <strong>{{ student['points'] }} <small>pts</small></strong>
+                {% if period != 'all' %}
+                  <small class="period-pts">+{{ student['period_pts'] }} {{ period_label|lower }}</small>
+                {% endif %}
                 <span class="ranking-badge badge-{{ student['current_badge']|lower }}">{{ student['current_badge'] }}</span>
               </div>
             </div>
@@ -123,13 +249,15 @@
         {% endif %}
       {% else %}
         <p class="admin-muted">
-          {% if total > 0 %}No students match the current filter.{% else %}Student rankings will appear after students register and take missions.{% endif %}
+          {% if total > 0 %}No students match the current filters.{% else %}Student rankings will appear after students register and take missions.{% endif %}
         </p>
       {% endif %}
     </div>
   </section>
 </section>
+{% endblock %}
 
+{% block scripts %}
 <script>
 (function() {
   const form = document.getElementById('report_filters');
@@ -137,6 +265,7 @@
   if (!form || !results) return;
 
   const qInput = form.querySelector('input[name="q"]');
+  const gradeSelect = form.querySelector('select[name="grade"]');
   const badgeSelect = form.querySelector('select[name="badge"]');
   let debounceTimer = null;
   let isSearching = false;
@@ -154,6 +283,8 @@
     const params = new URLSearchParams(new FormData(form));
     if (!params.get('q')) params.delete('q');
     if (!params.get('badge')) params.delete('badge');
+    if (!params.get('grade')) params.delete('grade');
+    if (params.get('period') === 'all') params.delete('period');
 
     const query = params.toString();
     const url = form.action + (query ? '?' + query : '');
@@ -191,6 +322,10 @@
 
   if (badgeSelect) {
     badgeSelect.addEventListener('change', doSearch);
+  }
+
+  if (gradeSelect) {
+    gradeSelect.addEventListener('change', doSearch);
   }
 
   form.addEventListener('submit', function(e) {

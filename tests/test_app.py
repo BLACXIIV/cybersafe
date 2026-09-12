@@ -1,3 +1,6 @@
+from io import BytesIO
+
+import openpyxl
 import pytest
 from app import create_app
 from security import MIN_LENGTH, validate_password, describe_problems
@@ -121,3 +124,119 @@ def test_signup_page_shows_the_rules(client):
     assert response.status_code == 200
     assert b"pw-rules" in response.data
     assert f"At least {MIN_LENGTH} characters".encode() in response.data
+
+
+# ---------- Question bulk import ----------
+
+QUESTION_IMPORT_HEADERS = [
+    "Mission Number", "Question Number", "Question",
+    "Choice A", "Choice A Points", "Choice B", "Choice B Points",
+    "Choice C", "Choice C Points", "Choice D", "Choice D Points",
+    "Explanation",
+]
+
+
+def _make_questions_xlsx(rows):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(QUESTION_IMPORT_HEADERS)
+    for row in rows:
+        ws.append(row)
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+class _Upload:
+    """Minimal stand-in for a Werkzeug FileStorage (only .read() is used)."""
+
+    def __init__(self, data):
+        self._data = data
+
+    def read(self):
+        return self._data
+
+
+def test_import_questions_from_excel(client):
+    from admin import _import_questions_from_excel
+    from database.db import get_db
+
+    app = client.application
+    with app.app_context():
+        db = get_db()
+
+        def _wipe_test_data():
+            db.execute(
+                """DELETE FROM choices WHERE question_id IN
+                   (SELECT id FROM questions WHERE prompt LIKE 'IMPORT-TEST%')"""
+            )
+            db.execute("DELETE FROM questions WHERE prompt LIKE 'IMPORT-TEST%'")
+            db.execute("DELETE FROM levels WHERE level_number IN (998, 999)")
+
+        _wipe_test_data()
+        db.execute(
+            "INSERT INTO levels (level_number, name, focus) VALUES (999, 'Import Test Mission', 'test')"
+        )
+        db.commit()
+        level_id = db.execute(
+            "SELECT id FROM levels WHERE level_number = 999"
+        ).fetchone()["id"]
+
+        rows = [
+            # valid row -> added
+            [999, 1, "IMPORT-TEST valid question", "Best", 100, "Better", 50, "Weak", 25, "Wrong", 0, "Because."],
+            # missing Choice D text -> error, not imported
+            [999, 2, "IMPORT-TEST missing choice", "Best", 100, "Better", 50, "Weak", 25, None, None, ""],
+            # mission that does not exist -> auto-created, question imported
+            [998, 1, "IMPORT-TEST new mission", "Best", 100, "Better", 50, "Weak", 25, "Wrong", 0, ""],
+            # same level + question_number as the valid row -> skipped
+            [999, 1, "IMPORT-TEST duplicate", "Best", 100, "Better", 50, "Weak", 25, "Wrong", 0, ""],
+        ]
+
+        try:
+            added, skipped, errors, created = _import_questions_from_excel(
+                db, _Upload(_make_questions_xlsx(rows))
+            )
+
+            assert added == 2
+            assert skipped == 1
+            assert created == [998]
+            assert any("missing" in e.lower() for e in errors)
+
+            # The missing mission was auto-created with a placeholder name.
+            new_level = db.execute(
+                "SELECT * FROM levels WHERE level_number = 998"
+            ).fetchone()
+            assert new_level is not None
+            assert new_level["name"] == "Mission 998"
+            new_question = db.execute(
+                "SELECT * FROM questions WHERE level_id = ? AND question_number = 1",
+                (new_level["id"],),
+            ).fetchone()
+            assert new_question is not None
+            assert new_question["prompt"] == "IMPORT-TEST new mission"
+
+            question = db.execute(
+                "SELECT * FROM questions WHERE level_id = ? AND question_number = 1",
+                (level_id,),
+            ).fetchone()
+            assert question is not None
+            assert question["prompt"] == "IMPORT-TEST valid question"
+            assert question["explanation"] == "Because."
+
+            choices = db.execute(
+                "SELECT letter, points FROM choices WHERE question_id = ? ORDER BY letter",
+                (question["id"],),
+            ).fetchall()
+            assert [(c["letter"], c["points"]) for c in choices] == [
+                ("A", 100), ("B", 50), ("C", 25), ("D", 0),
+            ]
+
+            # The missing-choice row must not have been imported.
+            assert db.execute(
+                "SELECT COUNT(*) AS c FROM questions WHERE level_id = ?", (level_id,)
+            ).fetchone()["c"] == 1
+        finally:
+            _wipe_test_data()
+            db.commit()
