@@ -1,5 +1,5 @@
 {# Admin section tabs — the active tab follows request.endpoint. #}
-<nav class="admin-tabs" aria-label="Admin sections">
+<nav class="admin-tabs no-fade" aria-label="Admin sections">
   {% for endpoint, label, icon in [
     ('admin.students', 'Students', 'users'),
     ('admin.missions', 'Mission bank', 'target'),
@@ -7,8 +7,171 @@
     ('admin.settings', 'Settings', 'settings'),
   ] %}
     {% set active = request.endpoint == endpoint %}
-    <a class="admin-tab{% if active %} is-active{% endif %}" href="{{ url_for(endpoint) }}"{% if active %} aria-current="page"{% endif %}>
-      {{ lucide(icon, size=15) }}<span>{{ label }}</span>
+    <a class="admin-tab{% if active %} is-active{% endif %}" href="{{ url_for(endpoint) }}" title="{{ label }}" aria-label="{{ label }}"{% if active %} aria-current="page"{% endif %}>
+      {{ lucide(icon, size=18) }}<span>{{ label }}</span>
     </a>
   {% endfor %}
 </nav>
+
+<script>
+// Tab switching without a full reload: fetch the next screen, slide the old
+// .admin-page out, swap it, slide the new one in. Header, hero showcase, tabs
+// and footer stay mounted the whole time. Falls back to normal navigation on
+// any failure (sessionStorage dir replays the slide on the loaded page).
+(function() {
+  const nav = document.querySelector('.admin-tabs');
+  const shell = document.querySelector('.admin-shell');
+  if (!nav || !shell) return;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const tabs = Array.from(nav.querySelectorAll('.admin-tab'));
+
+  let current = tabs.findIndex(function(t) { return t.classList.contains('is-active'); });
+  let swapping = false;
+
+  const dir = sessionStorage.getItem('adminTabDir');
+  sessionStorage.removeItem('adminTabDir');
+  if (dir && !reduced) {
+    window.__skipFadeUp = true;
+    // .admin-page isn't parsed yet at this point; the attribute scopes the
+    // entry animation to it via CSS once it exists.
+    shell.dataset.tabDir = dir;
+  }
+
+  function runScripts(page) {
+    // innerHTML-swapped scripts are inert: clone them so they execute.
+    page.querySelectorAll('script').forEach(function(old) {
+      const src = old.getAttribute('src');
+      if (src) {
+        if (document.querySelector('script[src="' + src + '"]')) return;
+        const s = document.createElement('script');
+        s.src = src;
+        document.body.appendChild(s);
+        return;
+      }
+      const s = document.createElement('script');
+      s.textContent = old.textContent;
+      old.replaceWith(s);
+    });
+  }
+
+  function swapTo(href, opts) {
+    opts = opts || {};
+    if (swapping) return;
+    swapping = true;
+    const page = document.querySelector('.admin-page');
+    if (!page) { window.location.href = href; return; }
+
+    if (!reduced && opts.dir) {
+      page.classList.add(opts.dir === 'right' ? 'tab-exit-left' : 'tab-exit-right');
+    }
+
+    const fetched = fetch(href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(res) {
+        if (!res.ok) throw new Error('Tab fetch failed');
+        return res.text();
+      });
+    const delay = new Promise(function(r) { setTimeout(r, reduced || !opts.dir ? 0 : 190); });
+
+    Promise.all([fetched, delay]).then(function(results) {
+      const doc = new DOMParser().parseFromString(results[0], 'text/html');
+      const newPage = doc.querySelector('.admin-page');
+      if (!newPage) throw new Error('Missing .admin-page');
+
+      page.replaceWith(newPage);
+      if (!reduced) {
+        newPage.classList.add(
+          opts.dir ? (opts.dir === 'right' ? 'tab-enter-right' : 'tab-enter-left')
+                   : 'tab-fade-in'
+        );
+      }
+      runScripts(newPage);
+
+      if (opts.tabIndex !== undefined && opts.tabIndex !== null) {
+        tabs.forEach(function(t, i) {
+          const active = i === opts.tabIndex;
+          t.classList.toggle('is-active', active);
+          if (active) t.setAttribute('aria-current', 'page');
+          else t.removeAttribute('aria-current');
+        });
+        current = opts.tabIndex;
+      }
+      history.pushState({}, '', href);
+      const t = doc.querySelector('title');
+      if (t) document.title = t.textContent;
+      // Scroll position is preserved: only .admin-page changed.
+      swapping = false;
+    }).catch(function() {
+      // Fallback: real navigation; remember the slide direction for entry.
+      if (opts.dir) sessionStorage.setItem('adminTabDir', opts.dir);
+      window.location.href = href;
+    });
+  }
+
+  nav.addEventListener('click', function(e) {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const link = e.target.closest('.admin-tab');
+    if (!link) return;
+    const target = tabs.indexOf(link);
+    e.preventDefault();
+    if (target === -1 || target === current) return;
+    swapTo(link.href, { dir: target > current ? 'right' : 'left', tabIndex: target });
+  });
+
+  // Roster/report pagination swaps in place too — scroll stays put.
+  document.addEventListener('click', function(e) {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const link = e.target.closest('.ranking-pagination a[href]');
+    if (!link) return;
+    e.preventDefault();
+    swapTo(link.href, {});
+  });
+
+  window.addEventListener('popstate', function() {
+    const idx = tabs.findIndex(function(t) { return t.pathname === location.pathname; });
+    if (idx !== -1 && idx !== current) {
+      sessionStorage.setItem('adminTabDir', idx > current ? 'right' : 'left');
+    }
+    location.reload();
+  });
+
+  // Auto-hide the bottom nav on mobile: away on scroll down, back on scroll up.
+  const mobileNav = window.matchMedia('(max-width: 768px)');
+  let lastY = Math.max(0, window.scrollY);
+  let scrollTicking = false;
+  function syncTabVisibility() {
+    const y = Math.max(0, window.scrollY);
+    const delta = y - lastY;
+    if (Math.abs(delta) > 6) {
+      nav.classList.toggle('is-hidden', mobileNav.matches && delta > 0 && y > 90);
+      lastY = y;
+    }
+    scrollTicking = false;
+  }
+  window.addEventListener('scroll', function() {
+    if (scrollTicking) return;
+    scrollTicking = true;
+    requestAnimationFrame(syncTabVisibility);
+  }, { passive: true });
+  mobileNav.addEventListener('change', function(m) {
+    if (!m.matches) nav.classList.remove('is-hidden');
+  });
+})();
+
+// Keep scroll position across POST->redirect->GET cycles and roster pagination,
+// so add/delete/suspend actions don't bounce the admin back to the top.
+(function() {
+  const KEY = 'adminScrollY';
+  const saved = sessionStorage.getItem(KEY);
+  if (saved !== null) {
+    sessionStorage.removeItem(KEY);
+    const y = parseInt(saved, 10) || 0;
+    requestAnimationFrame(function() { window.scrollTo(0, y); });
+    window.addEventListener('load', function() { window.scrollTo(0, y); });
+  }
+  document.addEventListener('submit', function(e) {
+    if (e.target.method && e.target.method.toLowerCase() === 'post') {
+      sessionStorage.setItem(KEY, String(window.scrollY));
+    }
+  });
+})();
+</script>

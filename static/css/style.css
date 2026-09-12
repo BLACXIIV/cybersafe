@@ -1208,7 +1208,7 @@ button.nav-user { cursor: pointer; }
 
 /* ---------- Admin ---------- */
 
-.admin-shell { width: 100%; max-width: 430px; margin: 0 auto; }
+.admin-shell { width: 100%; max-width: 430px; margin: 0 auto; padding-bottom: 5.5rem; }
 .admin-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin: 0.5rem 0 1.5rem; }
 .admin-heading h1 { margin: 0.15rem 0 0.3rem; font-size: clamp(1.45rem, 4vw, 2rem); }
 .admin-heading p:last-child { margin: 0; color: var(--text-secondary); font-size: 0.85rem; }
@@ -1641,38 +1641,92 @@ footer.site-footer {
   }
 }
 
-/* ---------- Admin section tabs ---------- */
+/* ---------- Admin nav: bottom bar on mobile, in-flow tabs on desktop ---------- */
 
 .admin-tabs {
+  position: fixed;
+  bottom: max(0.85rem, env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: max-content;
+  z-index: 50;
   display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-  margin: 0 0 1.25rem;
-  padding: 0.3rem;
+  gap: 0.3rem;
+  padding: 0.4rem;
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: rgba(18,26,48,.6);
+  border-radius: 99px;
+  background: rgba(11,16,32,.92);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  box-shadow: 0 8px 32px rgba(0,0,0,.5), 0 0 20px rgba(34,211,238,.08), inset 0 1px 0 rgba(34,211,238,.08);
+  transition: transform .32s cubic-bezier(0.22, 1, 0.36, 1), opacity .25s ease;
+}
+.admin-tabs.is-hidden {
+  transform: translateY(calc(100% + 1.5rem));
+  opacity: 0;
+  pointer-events: none;
 }
 .admin-tab {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.85rem;
-  border-radius: 9px;
+  padding: 0.6rem;
+  border-radius: 99px;
   color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 600;
-  transition: color .15s, background .15s;
+  white-space: nowrap;
+  transition: color .18s, background .18s, box-shadow .18s, padding .28s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.admin-tab svg { color: var(--text-tertiary); transition: color .15s; }
-.admin-tab:hover { color: var(--text-primary); background: rgba(34,211,238,.08); }
-.admin-tab:hover svg { color: var(--accent-cyan); }
+.admin-tab svg { color: var(--text-tertiary); flex: 0 0 auto; transition: color .18s; }
+.admin-tab span {
+  max-width: 0;
+  opacity: 0;
+  margin-left: 0;
+  overflow: hidden;
+  transition: max-width .32s cubic-bezier(0.22, 1, 0.36, 1), opacity .22s ease, margin-left .32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.admin-tab:not(.is-active):hover { color: var(--text-primary); background: rgba(34,211,238,.07); }
+.admin-tab:not(.is-active):hover svg { color: var(--accent-cyan); }
 .admin-tab.is-active {
-  color: var(--accent-cyan);
-  background: rgba(34,211,238,.12);
-  box-shadow: inset 0 0 0 1px rgba(34,211,238,.3);
+  color: #06222b;
+  padding: 0.6rem 0.95rem;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue-light));
+  box-shadow: 0 0 18px rgba(34,211,238,.4), inset 0 1px 0 rgba(255,255,255,.3);
 }
-.admin-tab.is-active svg { color: var(--accent-cyan); }
+.admin-tab.is-active span { max-width: 8rem; opacity: 1; margin-left: 0.45rem; }
+.admin-tab.is-active svg { color: #06222b; }
+
+/* Desktop: back to an in-flow segmented bar with all labels visible. */
+@media (min-width: 769px) {
+  .admin-shell { padding-bottom: 0; }
+  .admin-tabs {
+    position: static;
+    width: auto;
+    margin: 0 0 1.25rem;
+    border-radius: 14px;
+    background: rgba(11,16,32,.7);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: inset 0 1px 0 rgba(34,211,238,.05);
+  }
+  .admin-tab { flex: 1 1 0; justify-content: center; padding: 0.6rem 0.5rem; border-radius: 10px; }
+  .admin-tab span { max-width: none; opacity: 1; margin-left: 0.45rem; }
+  .admin-tab.is-active { padding: 0.6rem 0.5rem; }
+  .admin-tabs.is-hidden { transform: none; opacity: 1; pointer-events: auto; }
+}
+
+/* Tab switch slide transition (driven by admin_tabs.html) */
+@keyframes tab-enter-right { from { opacity: 0; transform: translateX(48px); } to { opacity: 1; transform: none; } }
+@keyframes tab-enter-left  { from { opacity: 0; transform: translateX(-48px); } to { opacity: 1; transform: none; } }
+@keyframes tab-exit-left   { to { opacity: 0; transform: translateX(-48px); } }
+@keyframes tab-exit-right  { to { opacity: 0; transform: translateX(48px); } }
+.admin-shell[data-tab-dir="right"] .admin-page { animation: tab-enter-right .3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.admin-shell[data-tab-dir="left"] .admin-page  { animation: tab-enter-left .3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.admin-page.tab-exit-left  { animation: tab-exit-left .18s ease-in both; }
+.admin-page.tab-exit-right { animation: tab-exit-right .18s ease-in both; }
+@keyframes admin-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.admin-page.tab-fade-in { animation: admin-fade-in .22s ease both; }
 
 /* ---------- Report toolbar + KPIs ---------- */
 
@@ -1737,7 +1791,7 @@ footer.site-footer {
 .dist-label { color: var(--text-primary); font-weight: 600; min-width: 0; }
 .dist-label small { display: block; color: var(--text-tertiary); font-size: 0.62rem; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dist-bar { height: 8px; border-radius: 99px; background: var(--bg-panel-light); overflow: hidden; }
-.dist-fill { display: block; height: 100%; border-radius: 99px; transition: width .5s ease; }
+.dist-fill { display: block; width: 0; height: 100%; border-radius: 99px; transition: width .5s ease; }
 .dist-bronze { background: #cd7f32; }
 .dist-silver { background: #a1a1aa; }
 .dist-gold { background: #facc15; }

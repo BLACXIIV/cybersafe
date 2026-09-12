@@ -7,6 +7,7 @@
   {% set admin_subtitle = 'Import questions and review every mission item.' %}
   {% include "components/admin_header.html" %}
 
+  <div class="admin-page">
   <section class="admin-panel" style="margin-bottom:1.25rem;">
     <div class="admin-panel-heading"><h2>Bulk import from Excel</h2></div>
     <form method="post" enctype="multipart/form-data">
@@ -78,10 +79,7 @@
       {% endfor %}
     </div>
   </section>
-</section>
-{% endblock %}
 
-{% block scripts %}
 <script src="{{ url_for('static', filename='js/admin-uploads.js') }}"></script>
 <script>
 (function() {
@@ -145,4 +143,7 @@
   });
 })();
 </script>
+
+  </div>
+</section>
 {% endblock %}

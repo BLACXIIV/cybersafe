@@ -7,6 +7,7 @@
   {% set admin_subtitle = 'Register students, then manage their accounts from the roster.' %}
   {% include "components/admin_header.html" %}
 
+  <div class="admin-page">
   <section class="admin-panel">
     <div class="admin-panel-heading"><h2>Register students</h2></div>
     <div class="register-grid">
@@ -132,9 +133,8 @@
       {% endif %}
     </div>
   </section>
-</section>
 
-<div id="pw-reset-modal" class="modal-overlay" style="display:none;" aria-hidden="true">
+  <div id="pw-reset-modal" class="modal-overlay" style="display:none;" aria-hidden="true">
   <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="pw-reset-title">
     <h2 id="pw-reset-title" style="margin:0 0 0.25rem; font-size:1rem;">Change Password</h2>
     <p id="pw-reset-for" class="admin-muted" style="margin:0 0 1rem; font-size:0.8rem;"></p>
@@ -170,9 +170,7 @@
     </form>
   </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
 <script src="{{ url_for('static', filename='js/admin-uploads.js') }}"></script>
 <script>
 (function() {
@@ -315,4 +313,7 @@
   });
 })();
 </script>
+
+  </div>
+</section>
 {% endblock %}

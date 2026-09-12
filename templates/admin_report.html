@@ -7,6 +7,7 @@
   {% set admin_subtitle = 'Susceptibility, activity, and weak spots — exportable for documentation.' %}
   {% include "components/admin_header.html" %}
 
+  <div class="admin-page">
   <section class="admin-panel report-toolbar-panel">
     <div class="report-toolbar">
       <div class="period-chips" role="group" aria-label="Report period">
@@ -127,7 +128,7 @@
             {% set count = badge_dist[badge] %}
             <div class="dist-row">
               <span class="dist-label">{{ badge }}<small>{{ title }}</small></span>
-              <span class="dist-bar"><i class="dist-fill dist-{{ badge|lower }}" style="width: {{ (count / total * 100) | round(1) }}%"></i></span>
+              <span class="dist-bar"><i class="dist-fill dist-{{ badge|lower }}" data-w="{{ (count / total * 100) | round(1) }}"></i></span>
               <span class="dist-count">{{ count }}</span>
             </div>
           {% endfor %}
@@ -146,7 +147,7 @@
           {% for g in by_grade %}
             <div class="dist-row">
               <span class="dist-label">{{ g['name'] }}</span>
-              <span class="dist-bar"><i class="dist-fill dist-sus" style="width: {{ g['pct'] }}%"></i></span>
+              <span class="dist-bar"><i class="dist-fill dist-sus" data-w="{{ g['pct'] }}"></i></span>
               <span class="dist-count">{{ g['sus'] }}/{{ g['total'] }} · {{ g['pct'] }}%</span>
             </div>
           {% endfor %}
@@ -163,7 +164,7 @@
           {% for m in by_mission %}
             <div class="dist-row">
               <span class="dist-label">Mission {{ m['level_number'] }}<small>{{ m['name'] }}</small></span>
-              <span class="dist-bar"><i class="dist-fill dist-avg" style="width: {{ m['avg_pts'] }}%"></i></span>
+              <span class="dist-bar"><i class="dist-fill dist-avg" data-w="{{ m['avg_pts'] }}"></i></span>
               <span class="dist-count">{{ m['avg_pts'] }} avg · {{ m['misses'] }} miss{{ 'es' if m['misses'] != 1 else '' }}</span>
             </div>
           {% endfor %}
@@ -254,10 +255,14 @@
       {% endif %}
     </div>
   </section>
-</section>
-{% endblock %}
 
-{% block scripts %}
+<script>
+// Bar widths live in data-w so the markup stays lint-clean; apply them here.
+document.querySelectorAll('.dist-fill[data-w]').forEach(function(el) {
+  const pct = Math.max(0, Math.min(100, parseFloat(el.dataset.w) || 0));
+  requestAnimationFrame(function() { el.style.width = pct + '%'; });
+});
+</script>
 <script>
 (function() {
   const form = document.getElementById('report_filters');
@@ -334,4 +339,7 @@
   });
 })();
 </script>
+
+  </div>
+</section>
 {% endblock %}

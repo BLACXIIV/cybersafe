@@ -7,6 +7,7 @@
   {% set admin_subtitle = 'School identity and the grade levels used at registration.' %}
   {% include "components/admin_header.html" %}
 
+  <div class="admin-page">
   <div class="admin-grid">
     <section class="admin-panel">
       <div class="admin-panel-heading"><h2>School branding</h2><span>Identity</span></div>
@@ -60,10 +61,7 @@
       </div>
     </section>
   </div>
-</section>
-{% endblock %}
 
-{% block scripts %}
 <script src="{{ url_for('static', filename='js/admin-uploads.js') }}"></script>
 <script>
 (function() {
@@ -82,4 +80,7 @@
   });
 })();
 </script>
+
+  </div>
+</section>
 {% endblock %}

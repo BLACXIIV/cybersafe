@@ -5,7 +5,7 @@
   <!-- This viewport tag is what makes the site responsive on phones/tablets -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Cyber-S.A.F.E.{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=2) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=3) }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/hero.css', v=2) }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -26,23 +26,22 @@
 
         {% if g.user %}
           {% set is_admin = g.user['role'] == 'admin' %}
+          {# Admins navigate via the section tabs; only students get top-nav links. #}
           {% set nav_items = [
-            ('admin.dashboard' if is_admin else 'main.dashboard', 'Dashboard', 'shield' if is_admin else 'layout-dashboard'),
+            ('main.dashboard', 'Dashboard', 'layout-dashboard'),
             ('levels.index', 'Missions', 'target'),
+            ('main.internet_access', 'Access', 'wifi'),
           ] %}
-          {% if is_admin %}
-            {% set nav_items = nav_items + [('admin.report', 'Reports', 'trending-up')] %}
-          {% else %}
-            {% set nav_items = nav_items + [('main.internet_access', 'Access', 'wifi')] %}
+          {% if not is_admin %}
+            <div class="nav-menu">
+              {% for endpoint, label, icon in nav_items %}
+                {% set active = request.endpoint == endpoint or (endpoint == 'levels.index' and request.endpoint and request.endpoint.startswith('levels.')) %}
+                <a class="nav-link{% if active %} is-active{% endif %}" href="{{ url_for(endpoint) }}"{% if active %} aria-current="page"{% endif %}>
+                  {{ lucide(icon, size=16) }}<span class="nav-link-text">{{ label }}</span>
+                </a>
+              {% endfor %}
+            </div>
           {% endif %}
-          <div class="nav-menu">
-            {% for endpoint, label, icon in nav_items %}
-              {% set active = request.endpoint == endpoint or (endpoint == 'levels.index' and request.endpoint and request.endpoint.startswith('levels.')) %}
-              <a class="nav-link{% if active %} is-active{% endif %}" href="{{ url_for(endpoint) }}"{% if active %} aria-current="page"{% endif %}>
-                {{ lucide(icon, size=16) }}<span class="nav-link-text">{{ label }}</span>
-              </a>
-            {% endfor %}
-          </div>
         {% endif %}
 
         <div class="nav-links">
@@ -380,7 +379,7 @@
   <script>
   (function() {
     const main = document.querySelector('main');
-    if (!main) return;
+    if (!main || window.__skipFadeUp) return;
     let roots = Array.from(main.children).filter(function(el) {
       return el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE' && !el.classList.contains('flash');
     });
