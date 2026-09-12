@@ -135,9 +135,12 @@ def login():
         mode = session.get("login_mode")
         is_xhr = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
-        def step2_error(message):
+        def step2_error(message, hint=None):
             if is_xhr:
-                return jsonify({"ok": False, "error": message}), 400
+                payload = {"ok": False, "error": message}
+                if hint:
+                    payload["hint"] = hint
+                return jsonify(payload), 400
             flash(message, "error")
             return render_template(
                 "login.html",
@@ -145,6 +148,7 @@ def login():
                 mode=mode,
                 login_user=user,
                 identifier=identifier,
+                step2_hint=hint,
             )
 
         def step2_success():
@@ -201,6 +205,28 @@ def login():
         password = request.form.get("password", "")
         if not check_password_hash(user["password_hash"], password):
             return step2_error("Incorrect password.")
+
+        # A redeemed voucher grants real internet access to the IP that
+        # activated it (vouchers.ip_address). Refuse logins from a different
+        # IP while that voucher is still active, so one account can't be
+        # used on a second device. The same IP reconnecting (page refresh,
+        # browser restart, app service restart) is allowed through.
+        #
+        # KNOWN LIMITATION: this gating is IP-based, not device-based —
+        # hash:mac isn't available on this Pi's kernel, see network_access.py.
+        # If a student's device gets a new IP from DHCP (e.g. reconnecting to
+        # WiFi after a while) while their voucher is still active under the
+        # old IP, their own reconnect is treated as "another device" and
+        # blocked until the voucher expires. Accepted tradeoff of the current
+        # architecture.
+        import levels  # deferred: levels imports auth at module load
+        active_ip = levels._active_voucher_ip(db, user["id"])
+        if active_ip and active_ip != request.remote_addr:
+            return step2_error(
+                "This account currently has an active internet connection on another device. "
+                "Please wait for it to expire, or log in from that device instead.",
+                hint="Internet access vouchers are tied to one device at a time.",
+            )
 
         return step2_success()
 

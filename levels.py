@@ -294,6 +294,23 @@ def _has_active_voucher(db, user_id):
     return any(_voucher_active(v) for v in vouchers)
 
 
+def _active_voucher_ip(db, user_id):
+    """Return the ip_address of the user's currently-active voucher, or None.
+
+    Same "active" definition as _has_active_voucher: used_at is set and
+    expires_at is in the future. If more than one voucher is somehow active,
+    the most recently activated one wins.
+    """
+    vouchers = db.execute("SELECT * FROM vouchers WHERE user_id = ?", (user_id,)).fetchall()
+    active = [v for v in vouchers if _voucher_active(v)]
+    if not active:
+        return None
+    # used_at is stored as "YYYY-MM-DD HH:MM:SS" text, so max() picks the
+    # most recently activated voucher.
+    latest = max(active, key=lambda v: v["used_at"])
+    return latest["ip_address"]
+
+
 def _cooldown_until(db, user_id):
     """Return the user's cooldown expiry as a UTC datetime, or None."""
     row = db.execute("SELECT cooldown_until FROM users WHERE id = ?", (user_id,)).fetchone()

@@ -575,6 +575,13 @@ button.nav-user { cursor: pointer; }
   margin: 0.5rem 0 0;
 }
 
+.auth-hint {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  text-align: center;
+  margin: -0.35rem 0 0.75rem;
+}
+
 .step2-section {
   max-height: 0;
   opacity: 0;

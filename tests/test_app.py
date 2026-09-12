@@ -126,6 +126,88 @@ def test_signup_page_shows_the_rules(client):
     assert f"At least {MIN_LENGTH} characters".encode() in response.data
 
 
+# ---------- Voucher device lock ----------
+
+def test_login_blocked_while_voucher_active_on_another_ip(client):
+    """An account with an active voucher on one IP cannot log in from a
+    different IP; the same IP is allowed to reconnect."""
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+
+    app = client.application
+    voucher_ip = "10.0.0.55"
+    other_ip = "10.0.0.99"
+
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM vouchers WHERE code = 'TESTLOCK'")
+        db.execute("DELETE FROM users WHERE username = 'voucherlock'")
+        db.execute("DELETE FROM levels WHERE level_number = 997")
+        level = db.execute(
+            "SELECT id FROM levels ORDER BY level_number LIMIT 1"
+        ).fetchone()
+        if level is None:
+            db.execute("INSERT INTO levels (level_number, name) VALUES (997, 'Voucher Lock Test')")
+            level = db.execute("SELECT id FROM levels WHERE level_number = 997").fetchone()
+        db.execute(
+            """INSERT INTO users
+               (full_name, username, email, password_hash, grade_section, role, is_password_set)
+               VALUES (?, ?, ?, ?, 'Grade 10', 'student', 1)""",
+            ("Voucher Lock", "voucherlock", "voucherlock@cybersafe.local",
+             generate_password_hash("V0ucher#Lock")),
+        )
+        user_id = db.execute(
+            "SELECT id FROM users WHERE username = 'voucherlock'"
+        ).fetchone()["id"]
+        db.execute(
+            """INSERT INTO vouchers (user_id, level_id, code, used_at, expires_at, ip_address)
+               VALUES (?, ?, 'TESTLOCK', CURRENT_TIMESTAMP, datetime('now', '+1 hours'), ?)""",
+            (user_id, level["id"], voucher_ip),
+        )
+        db.commit()
+
+    try:
+        # Full login from a different IP -> blocked at step 2 before the
+        # session is created.
+        client.post(
+            "/login",
+            data={"identifier": "voucherlock", "step": "1"},
+            environ_overrides={"REMOTE_ADDR": other_ip},
+        )
+        response = client.post(
+            "/login",
+            data={"identifier": "voucherlock", "step": "2", "password": "V0ucher#Lock"},
+            headers={"X-Requested-With": "XMLHttpRequest"},
+            environ_overrides={"REMOTE_ADDR": other_ip},
+        )
+        assert response.status_code == 400
+        body = response.get_json()
+        assert body["ok"] is False
+        assert "active internet connection on another device" in body["error"]
+        assert "one device at a time" in body["hint"]
+
+        # Same account logging in from the voucher's own IP -> allowed.
+        client.post(
+            "/login",
+            data={"identifier": "voucherlock", "step": "1"},
+            environ_overrides={"REMOTE_ADDR": voucher_ip},
+        )
+        response = client.post(
+            "/login",
+            data={"identifier": "voucherlock", "step": "2", "password": "V0ucher#Lock"},
+            environ_overrides={"REMOTE_ADDR": voucher_ip},
+        )
+        assert response.status_code == 302
+        assert "/dashboard" in response.headers["Location"]
+    finally:
+        with app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM vouchers WHERE code = 'TESTLOCK'")
+            db.execute("DELETE FROM users WHERE username = 'voucherlock'")
+            db.execute("DELETE FROM levels WHERE level_number = 997")
+            db.commit()
+
+
 # ---------- Question bulk import ----------
 
 QUESTION_IMPORT_HEADERS = [

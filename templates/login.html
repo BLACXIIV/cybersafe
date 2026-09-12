@@ -54,6 +54,7 @@
         <input type="hidden" id="personal-email" value="{{ login_user['email'] if login_user else '' }}">
 
         <p id="step2_error" class="auth-error" role="alert" style="display:none; margin-bottom:0.75rem;"></p>
+        <p id="step2_hint" class="auth-hint" {% if not step2_hint %}style="display:none;"{% endif %}>{{ step2_hint or '' }}</p>
 
         <div id="step2_create" class="step2-mode {% if step == 2 and mode == 'create' %}is-active{% else %}is-hidden{% endif %}">
           <div class="form-row">
@@ -386,10 +387,16 @@
     const errorP = document.getElementById('step2_error');
     if (!form || !stepInput) return;
 
-    function showStep2Error(message) {
+    const hintP = document.getElementById('step2_hint');
+
+    function showStep2Error(message, hint) {
       if (errorP) {
         errorP.textContent = message;
         errorP.style.display = 'block';
+      }
+      if (hintP) {
+        hintP.textContent = hint || '';
+        hintP.style.display = hint ? 'block' : 'none';
       }
       const pw = document.getElementById('password_login') || document.getElementById('password');
       const confirm = document.getElementById('confirm_password');
@@ -415,7 +422,7 @@
           if (data && data.ok && data.redirect) {
             window.location.href = data.redirect;
           } else {
-            showStep2Error(data && data.error ? data.error : 'Unable to log in. Try again.');
+            showStep2Error(data && data.error ? data.error : 'Unable to log in. Try again.', data && data.hint);
           }
         })
         .catch(function(err) {
