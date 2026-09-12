@@ -1,3 +1,4 @@
+cat > network/cybersafe-grant-access << 'EOF'
 #!/bin/bash
 # cybersafe-grant-access — the ONLY command the app is allowed to run as
 # root (see sudoers-cybersafe). Keep this file short and paranoid: it
@@ -6,21 +7,26 @@
 # the app's attack surface.
 #
 # Usage:
-#   cybersafe-grant-access grant  <mac> <seconds>   # allow <mac> through the gate for <seconds>
-#   cybersafe-grant-access revoke <mac>              # remove <mac> from the gate immediately
+#   cybersafe-grant-access grant  <ip> <seconds>   # allow <ip> through the gate for <seconds>
+#   cybersafe-grant-access revoke <ip>              # remove <ip> from the gate immediately
+#
+# NOTE: originally MAC-address based (hash:mac). Switched to IP-address
+# gating (hash:ip) because Raspberry Pi OS's kernel doesn't ship the
+# ip_set_hash_mac module. Every device on the wlan0 AP subnet gets its
+# own DHCP-assigned IP with no NAT in between, so this is equivalent for
+# our purposes.
 set -euo pipefail
 
 SET_NAME="voucher_allow"
-MAC_RE='^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'
+IP_RE='^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$'
 
 mode="${1:-}"
-mac="${2:-}"
+ip="${2:-}"
 
-if [[ -z "$mac" || ! "$mac" =~ $MAC_RE ]]; then
-    echo "cybersafe-grant-access: invalid or missing MAC address: '${mac}'" >&2
+if [[ -z "$ip" || ! "$ip" =~ $IP_RE ]]; then
+    echo "cybersafe-grant-access: invalid or missing IP address: '${ip}'" >&2
     exit 1
 fi
-mac_lower="$(echo "$mac" | tr 'A-Z' 'a-z')"
 
 case "$mode" in
     grant)
@@ -29,13 +35,14 @@ case "$mode" in
             echo "cybersafe-grant-access: invalid duration: '${seconds}' (must be 1-86400 seconds)" >&2
             exit 1
         fi
-        /usr/sbin/ipset add "$SET_NAME" "$mac_lower" timeout "$seconds" -exist
+        /usr/sbin/ipset add "$SET_NAME" "$ip" timeout "$seconds" -exist
         ;;
     revoke)
-        /usr/sbin/ipset del "$SET_NAME" "$mac_lower" 2>/dev/null || true
+        /usr/sbin/ipset del "$SET_NAME" "$ip" 2>/dev/null || true
         ;;
     *)
-        echo "usage: cybersafe-grant-access {grant|revoke} <mac> [seconds]" >&2
+        echo "usage: cybersafe-grant-access {grant|revoke} <ip> [seconds]" >&2
         exit 1
         ;;
 esac
+EOF

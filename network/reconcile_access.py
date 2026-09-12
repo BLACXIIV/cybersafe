@@ -29,9 +29,9 @@ def main():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     rows = conn.execute(
-        """SELECT mac_address, expires_at FROM vouchers
+        """SELECT ip_address, expires_at FROM vouchers
            WHERE used_at IS NOT NULL AND expires_at IS NOT NULL
-             AND mac_address IS NOT NULL"""
+             AND ip_address IS NOT NULL"""
     ).fetchall()
     conn.close()
 
@@ -45,7 +45,7 @@ def main():
         remaining = (expires - now).total_seconds()
         if remaining <= 0:
             continue
-        if network_access.grant_internet_access(row["mac_address"], int(remaining)):
+        if network_access.grant_internet_access(row["ip_address"], int(remaining)):
             granted += 1
 
     print(f"Reconciled {granted} active voucher(s) out of {len(rows)} checked.")

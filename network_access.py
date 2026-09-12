@@ -3,14 +3,20 @@
 
 How it fits together
 ---------------------
-- The Pi's wlan0 interface is the school's access point. Every connected
-  device shows up in the kernel's ARP table once it has talked to the Pi,
-  so we can turn "the student sitting at 10.42.0.73" into a MAC address
-  without asking them for it.
+- The Pi's wlan0 interface is the school's access point. dnsmasq hands
+  each connected device a DHCP lease, so the caller's IP address
+  (request.remote_addr) is a stable identity for the duration of a
+  voucher.
 - Real internet access is controlled by an ipset named ``voucher_allow``.
   ``network/setup_ap.sh`` sets up an iptables rule that only forwards
-  wlan0 -> eth0 traffic for MAC addresses in that set; everything else is
+  wlan0 -> eth0 traffic for IP addresses in that set; everything else is
   dropped.
+
+  NOTE: this was originally MAC-address based (hash:mac), but Raspberry
+  Pi OS's stock kernel doesn't ship the ip_set_hash_mac module, so this
+  was switched to hash:ip / IP-address gating instead. Equivalent
+  security for this use case, since every device on the AP subnet gets
+  its own DHCP-assigned IP (no NAT between students and the Pi).
 - gunicorn runs as an unprivileged user, so it cannot touch ipset/iptables
   directly. Instead it shells out to a tightly-scoped root helper,
   ``/usr/local/sbin/cybersafe-grant-access``, via a NOPASSWD sudoers rule
@@ -23,29 +29,11 @@ vouchers, points) keeps working normally for local development.
 import re
 import subprocess
 
-MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+IP_RE = re.compile(
+    r"^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
+    r"(\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$"
+)
 GRANT_SCRIPT = "/usr/local/sbin/cybersafe-grant-access"
-
-
-def get_mac_for_ip(ip_address):
-    """Look up the MAC address currently associated with ip_address in the
-    kernel ARP table (/proc/net/arp). Returns a lowercase MAC string, or
-    None if it's not there (e.g. not on the AP subnet, or Linux-only
-    feature unavailable on this OS)."""
-    if not ip_address:
-        return None
-    try:
-        with open("/proc/net/arp") as f:
-            next(f, None)  # header line
-            for line in f:
-                parts = line.split()
-                if len(parts) >= 4 and parts[0] == ip_address:
-                    mac = parts[3].lower()
-                    if mac != "00:00:00:00:00:00" and MAC_RE.match(mac):
-                        return mac
-    except OSError:
-        pass
-    return None
 
 
 def _run_helper(*args):
@@ -61,19 +49,19 @@ def _run_helper(*args):
         return False
 
 
-def grant_internet_access(mac_address, seconds):
-    """Allow mac_address through the FORWARD chain for `seconds` seconds.
+def grant_internet_access(ip_address, seconds):
+    """Allow ip_address through the FORWARD chain for `seconds` seconds.
     ipset expires the entry on its own after that, no cleanup job needed."""
-    if not mac_address or not MAC_RE.match(mac_address):
+    if not ip_address or not IP_RE.match(ip_address):
         return False
     seconds = int(seconds)
     if seconds <= 0:
         return False
-    return _run_helper("grant", mac_address, str(seconds))
+    return _run_helper("grant", ip_address, str(seconds))
 
 
-def revoke_internet_access(mac_address):
-    """Remove mac_address from the allow-list immediately (manual disconnect)."""
-    if not mac_address or not MAC_RE.match(mac_address):
+def revoke_internet_access(ip_address):
+    """Remove ip_address from the allow-list immediately (manual disconnect)."""
+    if not ip_address or not IP_RE.match(ip_address):
         return False
-    return _run_helper("revoke", mac_address)
+    return _run_helper("revoke", ip_address)

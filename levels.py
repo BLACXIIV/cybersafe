@@ -371,29 +371,20 @@ def _activate_voucher(db, voucher_row):
     without the Pi firewall installed is unchanged.
     """
     ip_address = request.remote_addr
-    mac_address = network_access.get_mac_for_ip(ip_address)
 
     db.execute(
         """UPDATE vouchers
            SET used_at = CURRENT_TIMESTAMP,
                expires_at = datetime('now', '+1 hours'),
-               ip_address = ?,
-               mac_address = ?
+               ip_address = ?
            WHERE id = ?""",
-        (ip_address, mac_address, voucher_row["id"]),
+        (ip_address, voucher_row["id"]),
     )
 
-    if mac_address:
-        granted = network_access.grant_internet_access(mac_address, VOUCHER_DURATION_SECONDS)
-        if not granted:
-            current_app.logger.warning(
-                "Voucher %s activated but firewall grant failed for MAC %s (is network/setup_ap.sh installed?)",
-                voucher_row["code"], mac_address,
-            )
-    else:
-        current_app.logger.info(
-            "Voucher %s activated but no MAC address found for IP %s; "
-            "internet access was not opened at the firewall.",
+    granted = network_access.grant_internet_access(ip_address, VOUCHER_DURATION_SECONDS)
+    if not granted:
+        current_app.logger.warning(
+            "Voucher %s activated but firewall grant failed for IP %s (is network/setup_ap.sh installed?)",
             voucher_row["code"], ip_address,
         )
 
@@ -404,8 +395,8 @@ def _deactivate_voucher(db, voucher_row):
         "UPDATE vouchers SET used_at = NULL, expires_at = NULL WHERE id = ?",
         (voucher_row["id"],),
     )
-    if voucher_row["mac_address"]:
-        network_access.revoke_internet_access(voucher_row["mac_address"])
+    if voucher_row["ip_address"]:
+        network_access.revoke_internet_access(voucher_row["ip_address"])
 
 
 def _generate_voucher_code(db):

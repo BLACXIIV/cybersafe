@@ -1,4 +1,4 @@
-from flask import Flask, g, render_template, session
+from flask import Flask, g, redirect, render_template, request, session, url_for
 from markupsafe import Markup
 
 from config import Config
@@ -11,19 +11,23 @@ def create_app():
     app.config.from_object(Config)
 
     if app.debug:
-        # Prevent the browser from caching templates and static assets during development.
         app.config["TEMPLATES_AUTO_RELOAD"] = True
         app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 
-    register_app(app)  # wires up db.close on teardown + `flask init-db` command
+    register_app(app)
 
-    # Rate limiting is off during tests so the test suite does not get throttled.
     app.config.setdefault("RATELIMIT_ENABLED", not app.config.get("TESTING", False))
     limiter.init_app(app)
 
     @app.errorhandler(429)
     def too_many_requests(error):
         return render_template("429.html"), 429
+
+    @app.errorhandler(404)
+    def captive_portal_redirect(error):
+        if request.method == "GET":
+            return redirect(url_for("main.landing"))
+        return error, 404
 
     @app.context_processor
     def inject_school_settings():
@@ -44,8 +48,6 @@ def create_app():
 
     @app.context_processor
     def inject_rank_up():
-        # Set when pending points are claimed; shown once on the next page the
-        # user lands on (base.html includes the celebration modal).
         return {"rank_up": session.pop("rank_up", None)}
 
     from lucide import lucide_icon
@@ -80,7 +82,6 @@ app = create_app()
 
 if __name__ == "__main__":
     import os
-    # Auto-create the database on first run so `python app.py` just works.
     if not os.path.exists(app.config["DATABASE_PATH"]):
         init_db(app)
         ensure_admin_data(app)

@@ -75,7 +75,7 @@ EOF
 sysctl --system >/dev/null
 
 echo "==> Creating the ipset now (systemd unit recreates it on every future boot)"
-ipset create voucher_allow hash:mac timeout 0 -exist
+ipset create voucher_allow hash:ip timeout 0 -exist
 
 echo "==> Configuring NAT + the per-MAC gate"
 iptables -t nat -C POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null || \
@@ -83,8 +83,9 @@ iptables -t nat -C POSTROUTING -o eth0 -j MASQUERADE 2>/dev/null || \
 
 iptables -N CYBERSAFE_GATE 2>/dev/null || true
 iptables -F CYBERSAFE_GATE
-iptables -A CYBERSAFE_GATE -m set --match-set voucher_allow src-mac -j ACCEPT
-iptables -A CYBERSAFE_GATE -j DROP
+iptables -A CYBERSAFE_GATE -m set --match-set voucher_allow src -j ACCEPT
+iptables -A CYBERSAFE_GATE -p tcp -j REJECT --reject-with tcp-reset
+iptables -A CYBERSAFE_GATE -j REJECT --reject-with icmp-port-unreachable
 
 iptables -C FORWARD -i wlan0 -o eth0 -j CYBERSAFE_GATE 2>/dev/null || \
     iptables -I FORWARD 1 -i wlan0 -o eth0 -j CYBERSAFE_GATE

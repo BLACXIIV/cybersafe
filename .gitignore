@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .devin/.loop_turns
+database/*.db
+database/*.db.bak-*
+*.db
+*.db.bak-*
+static/uploads/*
