@@ -698,9 +698,14 @@ button.nav-user { cursor: pointer; }
     justify-content: center;
     min-width: 0;
   }
-  .otp-group .otp-input {
-    /* ~9% of the row each so boxes match in both rows and still shrink. */
-    flex: 0 1 9%;
+  /* Extra specificity needed to beat the `#otp_inputs .otp-input`
+     base rule's `flex: 1 1 0`, which otherwise lets the 4-box row grow
+     wider than the 8-box row. */
+  #otp_inputs .otp-group .otp-input,
+  .otp-inputs .otp-group .otp-input {
+    /* Fixed 9% of the (equal-width) row for every box — no grow, no
+       shrink — so the 8-box and 4-box rows can't diverge in size. */
+    flex: 0 0 9%;
     max-width: 2.4rem;
   }
   .otp-group .otp-sep-end {

@@ -18,6 +18,10 @@
     <p style="color:var(--text-secondary); font-size:0.95rem;">
       Expires at: <strong>{{ voucher.expires_at }}</strong>
     </p>
+    <p style="color:var(--text-tertiary); font-size:0.85rem;">
+      You're online — you can close this window now and open your browser or other apps.
+      (A "404" page from the sign-in window afterwards is normal.)
+    </p>
     <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap; margin-top:1.5rem;">
       <a class="btn btn-primary" href="{{ url_for('main.dashboard') }}">Dashboard</a>
       <a class="btn btn-outline" href="{{ url_for('main.internet_access') }}">Internet Access</a>
