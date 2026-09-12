@@ -196,20 +196,24 @@ img { max-width: 100%; display: block; }
 }
 
 @media (max-width: 520px) {
-  /* Keep the school name visible on phones; truncate it instead of hiding it. */
+  /* Keep the school name fully visible on phones: let it wrap to a
+     second line instead of truncating it with an ellipsis. */
   .brand-text {
     display: block;
-    max-width: 46vw;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: 0.85rem;
+    max-width: 52vw;
+    overflow: visible;
+    white-space: normal;
+    line-height: 1.15;
+    font-size: 0.8rem;
   }
   .brand-logo {
     width: 34px;
     height: 34px;
     flex: 0 0 34px;
   }
+  /* Slim the right-side cluster so the name gets the freed space. */
+  .nav-caret { display: none; }
+  .nav-pill { padding: 0.3rem 0.45rem; }
 }
 
 /* ---------- Buttons ---------- */
