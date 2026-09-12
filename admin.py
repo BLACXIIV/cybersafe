@@ -840,8 +840,15 @@ def _report_args(current_period, badge_filter, grade_filter, q, **extra):
 
 @bp.route("/report")
 @admin_required
+def report_redirect():
+    """Legacy URL — the report screen now lives at /admin/analytics."""
+    return redirect(url_for("admin.analytics", **request.args))
+
+
+@bp.route("/analytics")
+@admin_required
 @limiter.limit("60 per minute")
-def report():
+def analytics():
     """Susceptibility report: roster state plus period-scoped activity metrics."""
     db = get_db()
     period = request.args.get("period", "all")
@@ -863,12 +870,12 @@ def report():
         args = _report_args(period, badge_filter, grade_filter, q)
         if page_num != 1:
             args["page"] = page_num
-        return url_for("admin.report", **args)
+        return url_for("admin.analytics", **args)
 
     paginated, pagination = _paginate(filtered, page, 10, page_url)
 
     return render_template(
-        "admin_report.html",
+        "admin_analytics.html",
         **{k: v for k, v in data.items() if k != "susceptible"},
         period=period,
         periods=REPORT_PERIODS,
@@ -906,10 +913,10 @@ def _student_export_row(r, period_points):
     ]
 
 
-@bp.route("/report/export")
+@bp.route("/analytics/export")
 @admin_required
 @limiter.limit("10 per minute")
-def report_export():
+def analytics_export():
     """Download the report as .xlsx (multi-sheet) or .csv (student list)."""
     fmt = request.args.get("format", "xlsx")
     period = request.args.get("period", "all")

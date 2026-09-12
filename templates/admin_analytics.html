@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Reports - Cyber-S.A.F.E.{% endblock %}
+{% block title %}Analytics - Cyber-S.A.F.E.{% endblock %}
 
 {% block content %}
 <section class="admin-shell">
-  {% set admin_title = 'Reports' %}
+  {% set admin_title = 'Analytics' %}
   {% set admin_subtitle = 'Susceptibility, activity, and weak spots — exportable for documentation.' %}
   {% include "components/admin_header.html" %}
 
@@ -13,13 +13,13 @@
       <div class="period-chips" role="group" aria-label="Report period">
         {% for key, label in periods.items() %}
           <a class="period-chip{% if period == key %} is-active{% endif %}"
-             href="{{ url_for('admin.report', **report_args(period=key)) }}"
+             href="{{ url_for('admin.analytics', **report_args(period=key)) }}"
              {% if period == key %}aria-current="true"{% endif %}>{{ label }}</a>
         {% endfor %}
       </div>
       <div class="report-export">
-        <a class="btn btn-sm btn-outline" href="{{ url_for('admin.report_export', **report_args(format='xlsx')) }}" download>{{ lucide('file-spreadsheet', size=15) }} Excel</a>
-        <a class="btn btn-sm btn-outline" href="{{ url_for('admin.report_export', **report_args(format='csv')) }}" download>{{ lucide('file-text', size=15) }} CSV</a>
+        <a class="btn btn-sm btn-outline" href="{{ url_for('admin.analytics_export', **report_args(format='xlsx')) }}" download>{{ lucide('file-spreadsheet', size=15) }} Excel</a>
+        <a class="btn btn-sm btn-outline" href="{{ url_for('admin.analytics_export', **report_args(format='csv')) }}" download>{{ lucide('file-text', size=15) }} CSV</a>
       </div>
     </div>
     <p class="admin-muted report-period-note">Activity metrics scoped to <strong>{{ period_label }}</strong>. Badge and susceptibility status are cumulative.</p>
@@ -194,7 +194,7 @@
   <section class="admin-panel report-list-panel">
     <div class="admin-panel-heading">
       <h2>Susceptible students</h2>
-      <form method="get" id="report_filters" class="ranking-filters" action="{{ url_for('admin.report') }}">
+      <form method="get" id="report_filters" class="ranking-filters" action="{{ url_for('admin.analytics') }}">
         <input type="hidden" name="period" value="{{ period }}">
         <input type="search" class="admin-input ranking-search" name="q" value="{{ q or '' }}" placeholder="Search by name..." aria-label="Search students" autocomplete="off">
         <select class="admin-input ranking-select" name="grade" aria-label="Filter by grade">
