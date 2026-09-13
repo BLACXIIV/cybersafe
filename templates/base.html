@@ -5,7 +5,7 @@
   <!-- This viewport tag is what makes the site responsive on phones/tablets -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Cyber-S.A.F.E.{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=4) }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=6) }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/hero.css', v=3) }}">
 </head>
 <body class="{% block body_class %}{% endblock %}">
@@ -389,10 +389,60 @@
         return el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE';
       });
     }
-    roots.forEach(function(el, i) {
-      if (el.classList.contains('fade-up') || el.classList.contains('no-fade')) return;
-      el.classList.add('fade-up');
-      el.style.animationDelay = (i * 0.08) + 's';
+    // Blocks that are just a stack of similar cards (e.g. .feature-grid) are
+    // expanded so each card animates on its own — that's what staggers.
+    let targets = [];
+    roots.forEach(function(el) {
+      const kids = Array.from(el.children).filter(function(c) {
+        return c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE';
+      });
+      // className is a string on HTML elements but an SVGAnimatedString on
+      // <svg> children — normalize before comparing.
+      const cn0 = kids.length ? (typeof kids[0].className === 'string' ? kids[0].className : (kids[0].className.baseVal || '')) : '';
+      const firstClass = cn0 ? cn0.trim().split(/\s+/)[0] : '';
+      if (kids.length > 1 && firstClass && kids.every(function(c) { return c.classList.contains(firstClass); })) {
+        targets = targets.concat(kids);
+      } else {
+        targets.push(el);
+      }
+    });
+    const stripLoadAnim = function(el) {
+      // The .fade-up animation's "both" fill-mode holds opacity:1 and would
+      // override the hidden state, so it has to come off.
+      Array.from(el.classList).forEach(function(c) {
+        if (c === 'fade-up' || /^fade-up-\d+$/.test(c)) el.classList.remove(c);
+      });
+    };
+    // No IntersectionObserver or reduced-motion: fall back to the old
+    // one-shot load stagger so nothing ends up stuck invisible.
+    if (!('IntersectionObserver' in window) ||
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      targets.forEach(function(el, i) {
+        if (el.classList.contains('fade-up') || el.classList.contains('no-fade')) return;
+        el.classList.add('fade-up');
+        el.style.animationDelay = (i * 0.08) + 's';
+      });
+      return;
+    }
+    const io = new IntersectionObserver(function(entries) {
+      let batch = 0;
+      entries.forEach(function(entry) {
+        const el = entry.target;
+        if (entry.isIntersecting) {
+          el.style.setProperty('--reveal-delay', (batch++ * 0.08) + 's');
+          el.classList.add('in-view');
+        } else {
+          // Reset the stagger delay so the fade-out starts immediately.
+          el.style.setProperty('--reveal-delay', '0s');
+          el.classList.remove('in-view');
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -5% 0px' });
+    targets.forEach(function(el) {
+      if (el.classList.contains('no-fade')) return;
+      stripLoadAnim(el);
+      el.classList.add('scroll-reveal');
+      io.observe(el);
     });
   })();
   </script>

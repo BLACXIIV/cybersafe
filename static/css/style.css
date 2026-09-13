@@ -79,6 +79,23 @@ img { max-width: 100%; display: block; }
 .fade-up-7 { animation-delay: .47s; }
 .fade-up-8 { animation-delay: .54s; }
 
+/* Scroll-reveal: hidden while off-screen, transitions in every time the
+   element enters the viewport (see the IntersectionObserver in base.html).
+   --reveal-delay is set per element to create the stagger. */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity .5s ease, transform .5s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0s);
+}
+.scroll-reveal.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal { opacity: 1; transform: none; transition: none; }
+}
+
 a { color: inherit; text-decoration: none; }
 
 img { max-width: 100%; display: block; }
@@ -690,10 +707,15 @@ button.nav-user { cursor: pointer; }
     flex-wrap: wrap;
     row-gap: 0.6rem;
   }
+  /* Give the OTP row a little more room inside the card on phones. */
+  .auth-card.login-card {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
   .otp-group {
     display: flex;
     flex: 1 1 100%;
-    gap: 0.35rem;
+    gap: 0.2rem;
     align-items: center;
     justify-content: center;
     min-width: 0;
@@ -703,10 +725,10 @@ button.nav-user { cursor: pointer; }
      wider than the 8-box row. */
   #otp_inputs .otp-group .otp-input,
   .otp-inputs .otp-group .otp-input {
-    /* Fixed 9% of the (equal-width) row for every box — no grow, no
+    /* Fixed 10.5% of the (equal-width) row for every box — no grow, no
        shrink — so the 8-box and 4-box rows can't diverge in size. */
-    flex: 0 0 9%;
-    max-width: 2.4rem;
+    flex: 0 0 10.5%;
+    max-width: 2.8rem;
   }
   .otp-group .otp-sep-end {
     display: none;
