@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Captive-portal sign-in popups render at odd widths. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connected! — Cyber-S.A.F.E.</title>
+  <!-- Everything this page needs is inlined. OS captive-portal popups are
+       restricted mini-browsers that often fail to load external CSS/JS/fonts,
+       and once the voucher grants this device internet access, any follow-up
+       request the popup makes can bypass the Pi's NAT redirect and hit the
+       real internet instead. So this page deliberately does NOT extend
+       base.html and references no /static/ assets, fonts, or icon helpers. -->
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background: #0b1220;
+      color: #e5e9f0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .card {
+      width: 100%;
+      max-width: 26rem;
+      background: #141c2e;
+      border: 1px solid #26314b;
+      border-radius: 1rem;
+      padding: 2rem 1.5rem;
+      text-align: center;
+    }
+    .icon { color: #4ade80; }
+    h1 { margin: 0.75rem 0 0.5rem; font-size: 1.5rem; }
+    p { color: #a8b3c7; font-size: 0.95rem; line-height: 1.5; margin: 0.5rem 0; }
+    .code { font-family: ui-monospace, Consolas, monospace; color: #e5e9f0; }
+    .close-btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.7rem 1.75rem;
+      border: 0;
+      border-radius: 0.6rem;
+      background: #38bdf8;
+      color: #0b1220;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .muted { font-size: 0.85rem; color: #7c89a3; }
+    .links { margin-top: 0.75rem; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .links a {
+      padding: 0.55rem 1.1rem;
+      border: 1px solid #26314b;
+      border-radius: 0.6rem;
+      color: #a8b3c7;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <svg class="icon" width="56" height="56" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round"
+         stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"></circle>
+      <path d="m9 12 2 2 4-4"></path>
+    </svg>
+    <h1>{% if already_used %}Already Connected{% else %}Connected!{% endif %}</h1>
+    <p>
+      Your voucher <strong class="code">{{ voucher.code }}</strong> has been accepted.
+      Internet access is now active for this session.
+    </p>
+    <p>Expires at: <strong>{{ voucher.expires_at }}</strong></p>
+    {% if claimed %}
+      <p>You claimed <strong>{{ claimed }}</strong> points.</p>
+    {% endif %}
+    <p>You're connected! You can close this window now.</p>
+    <!-- window.close() only works on windows opened via script — which is
+         exactly what OS captive-portal assistants are, so this should work
+         in practice. If the browser blocks it, nothing happens; that's fine,
+         it's a nice-to-have, not required for the page to be useful. -->
+    <button type="button" class="close-btn" onclick="window.close()">Close Window</button>
+    <p class="muted" style="margin-top:1.5rem;">Or keep browsing from this window:</p>
+    <div class="links">
+      <a href="{{ url_for('main.dashboard', _external=True) }}">Dashboard</a>
+      <a href="{{ url_for('main.internet_access', _external=True) }}">Internet Access</a>
+    </div>
+  </div>
+</body>
+</html>

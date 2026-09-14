@@ -876,8 +876,10 @@ def connect(level_number):
         return redirect(url_for("levels.play", level_number=level_number))
 
     if request.method == "POST":
-        # Always redirect after a POST so a refresh or Back does not ask the
-        # browser to resubmit the form (Confirm Form Resubmission).
+        # Redirect after a POST so a refresh or Back does not ask the browser
+        # to resubmit the form (Confirm Form Resubmission) — except for a fresh
+        # activation, which must return the whole success page in this single
+        # response (see below).
         already_used = False
         pasted = request.form.get("voucher_code", "").strip().upper()
         if pasted != voucher_row["code"].upper():
@@ -897,6 +899,21 @@ def connect(level_number):
                 flash(f"Connected! You claimed {claimed} points.", "success")
             else:
                 flash("Connected to the internet.", "success")
+            # Render a fully self-contained success page as the POST response
+            # instead of redirecting: once the voucher grants this device's IP
+            # internet access, a captive-portal popup's follow-up GET would
+            # bypass the Pi's NAT redirect and hit the real internet (a real
+            # 404), so the confirmation must all be in this one response.
+            voucher_row = db.execute(
+                "SELECT * FROM vouchers WHERE id = ?", (voucher_row["id"],)
+            ).fetchone()
+            return render_template(
+                "connect_success_standalone.html",
+                level=lvl,
+                voucher=voucher_row,
+                claimed=claimed,
+                already_used=False,
+            )
 
         return redirect(
             url_for(

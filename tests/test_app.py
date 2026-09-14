@@ -208,6 +208,68 @@ def test_login_blocked_while_voucher_active_on_another_ip(client):
             db.commit()
 
 
+# ---------- Captive-portal connect success page ----------
+
+def test_connect_success_renders_standalone_page(client):
+    """A fresh voucher activation returns the self-contained success page
+    directly (200, not a redirect), with no base.html chrome or /static/
+    assets — captive-portal popups may not be able to make a second request
+    once the voucher grants the device internet access."""
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+
+    app = client.application
+    username = "connectstandalone"
+    password = "C0nnect#Standalone"
+
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM vouchers WHERE code = 'STANDAL1'")
+        db.execute("DELETE FROM users WHERE username = ?", (username,))
+        db.execute("DELETE FROM levels WHERE level_number = 996")
+        db.execute("INSERT INTO levels (level_number, name) VALUES (996, 'Connect Page Test')")
+        level_id = db.execute(
+            "SELECT id FROM levels WHERE level_number = 996"
+        ).fetchone()["id"]
+        db.execute(
+            """INSERT INTO users
+               (full_name, username, email, password_hash, grade_section, role, is_password_set)
+               VALUES (?, ?, ?, ?, 'Grade 10', 'student', 1)""",
+            ("Connect Student", username, f"{username}@cybersafe.local",
+             generate_password_hash(password)),
+        )
+        user_id = db.execute(
+            "SELECT id FROM users WHERE username = ?", (username,)
+        ).fetchone()["id"]
+        db.execute(
+            "INSERT INTO vouchers (user_id, level_id, code) VALUES (?, ?, 'STANDAL1')",
+            (user_id, level_id),
+        )
+        db.commit()
+
+    try:
+        client.post("/login", data={"identifier": username, "step": "1"})
+        client.post("/login", data={"identifier": username, "step": "2", "password": password})
+
+        response = client.post("/levels/996/connect", data={"voucher_code": "STANDAL1"})
+
+        assert response.status_code == 200
+        assert b"Connected!" in response.data
+        # Self-contained: no external stylesheet and none of base.html's chrome.
+        assert b"/static/css/style.css" not in response.data
+        assert b"navbar" not in response.data
+        # Links out of the popup are absolute so they work from any base host.
+        assert b"http://localhost/dashboard" in response.data
+        assert b"http://localhost/internet-access" in response.data
+    finally:
+        with app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM vouchers WHERE code = 'STANDAL1'")
+            db.execute("DELETE FROM users WHERE username = ?", (username,))
+            db.execute("DELETE FROM levels WHERE level_number = 996")
+            db.commit()
+
+
 # ---------- Question bulk import ----------
 
 QUESTION_IMPORT_HEADERS = [
