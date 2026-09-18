@@ -913,6 +913,11 @@ def connect(level_number):
                 voucher=voucher_row,
                 claimed=claimed,
                 already_used=False,
+                # The request's Host header belongs to whatever domain the OS
+                # captive-portal probe used, not the Pi — so absolute links
+                # must be built from the configured base URL, not url_for's
+                # _external host guessing.
+                portal_base_url=current_app.config["PORTAL_BASE_URL"],
             )
 
         return redirect(

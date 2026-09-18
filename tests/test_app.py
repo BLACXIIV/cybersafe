@@ -258,15 +258,86 @@ def test_connect_success_renders_standalone_page(client):
         # Self-contained: no external stylesheet and none of base.html's chrome.
         assert b"/static/css/style.css" not in response.data
         assert b"navbar" not in response.data
-        # Links out of the popup are absolute so they work from any base host.
-        assert b"http://localhost/dashboard" in response.data
-        assert b"http://localhost/internet-access" in response.data
+        # Links out of the popup are absolute and anchored at the configured
+        # portal base URL — the request's Host header is untrustworthy here.
+        base = app.config["PORTAL_BASE_URL"].encode()
+        assert base + b"/dashboard" in response.data
+        assert base + b"/internet-access" in response.data
     finally:
         with app.app_context():
             db = get_db()
             db.execute("DELETE FROM vouchers WHERE code = 'STANDAL1'")
             db.execute("DELETE FROM users WHERE username = ?", (username,))
             db.execute("DELETE FROM levels WHERE level_number = 996")
+            db.commit()
+
+
+def test_connect_success_links_ignore_probe_host_header(client):
+    """Requests arriving via the Pi's captive-portal NAT redirect carry the
+    Host header of the OS connectivity probe (e.g. msftconnecttest.com), not
+    the Pi's address. Links on the success page must be built from
+    PORTAL_BASE_URL, not the request's Host."""
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+
+    app = client.application
+    username = "connecthostfake"
+    password = "H0st#FakeProbe"
+
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM vouchers WHERE code = 'HOSTFAKE'")
+        db.execute("DELETE FROM users WHERE username = ?", (username,))
+        db.execute("DELETE FROM levels WHERE level_number = 995")
+        db.execute("INSERT INTO levels (level_number, name) VALUES (995, 'Host Header Test')")
+        level_id = db.execute(
+            "SELECT id FROM levels WHERE level_number = 995"
+        ).fetchone()["id"]
+        db.execute(
+            """INSERT INTO users
+               (full_name, username, email, password_hash, grade_section, role, is_password_set)
+               VALUES (?, ?, ?, ?, 'Grade 10', 'student', 1)""",
+            ("Host Probe Student", username, f"{username}@cybersafe.local",
+             generate_password_hash(password)),
+        )
+        user_id = db.execute(
+            "SELECT id FROM users WHERE username = ?", (username,)
+        ).fetchone()["id"]
+        db.execute(
+            "INSERT INTO vouchers (user_id, level_id, code) VALUES (?, ?, 'HOSTFAKE')",
+            (user_id, level_id),
+        )
+        db.commit()
+
+    try:
+        # Simulate the NAT-redirected captive-portal case: every request in
+        # the popup's session carries the OS probe's fake Host header, not
+        # the Pi's address.
+        probe_host = {"Host": "msftconnecttest.com"}
+        client.post("/login", data={"identifier": username, "step": "1"}, headers=probe_host)
+        client.post(
+            "/login",
+            data={"identifier": username, "step": "2", "password": password},
+            headers=probe_host,
+        )
+
+        response = client.post(
+            "/levels/995/connect",
+            data={"voucher_code": "HOSTFAKE"},
+            headers=probe_host,
+        )
+
+        assert response.status_code == 200
+        base = app.config["PORTAL_BASE_URL"].encode()
+        assert base + b"/dashboard" in response.data
+        assert base + b"/internet-access" in response.data
+        assert b"msftconnecttest.com" not in response.data
+    finally:
+        with app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM vouchers WHERE code = 'HOSTFAKE'")
+            db.execute("DELETE FROM users WHERE username = ?", (username,))
+            db.execute("DELETE FROM levels WHERE level_number = 995")
             db.commit()
 
 

@@ -86,8 +86,8 @@
     <button type="button" class="close-btn" onclick="window.close()">Close Window</button>
     <p class="muted" style="margin-top:1.5rem;">Or keep browsing from this window:</p>
     <div class="links">
-      <a href="{{ url_for('main.dashboard', _external=True) }}">Dashboard</a>
-      <a href="{{ url_for('main.internet_access', _external=True) }}">Internet Access</a>
+      <a href="{{ portal_base_url }}{{ url_for('main.dashboard') }}">Dashboard</a>
+      <a href="{{ portal_base_url }}{{ url_for('main.internet_access') }}">Internet Access</a>
     </div>
   </div>
 </body>
