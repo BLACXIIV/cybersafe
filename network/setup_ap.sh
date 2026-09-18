@@ -90,6 +90,15 @@ iptables -A CYBERSAFE_GATE -j REJECT --reject-with icmp-port-unreachable
 iptables -C FORWARD -i wlan0 -o eth0 -j CYBERSAFE_GATE 2>/dev/null || \
     iptables -I FORWARD 1 -i wlan0 -o eth0 -j CYBERSAFE_GATE
 
+echo "==> Configuring the captive-portal redirect (unauthenticated HTTP -> login page)"
+iptables -t nat -N CYBERSAFE_PORTAL 2>/dev/null || true
+iptables -t nat -F CYBERSAFE_PORTAL
+iptables -t nat -A CYBERSAFE_PORTAL -m set --match-set voucher_allow src -j RETURN
+iptables -t nat -A CYBERSAFE_PORTAL -p tcp --dport 80 -j REDIRECT --to-port 8000
+
+iptables -t nat -C PREROUTING -i wlan0 -p tcp --dport 80 -j CYBERSAFE_PORTAL 2>/dev/null || \
+    iptables -t nat -I PREROUTING 1 -i wlan0 -p tcp --dport 80 -j CYBERSAFE_PORTAL
+
 echo "==> Saving the firewall rules so they survive a reboot"
 netfilter-persistent save
 
