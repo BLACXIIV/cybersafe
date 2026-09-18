@@ -19,20 +19,39 @@ def create_app():
     app.config.setdefault("RATELIMIT_ENABLED", not app.config.get("TESTING", False))
     limiter.init_app(app)
 
+    # IPs that just arrived via a captive-portal probe (fake Host header) and
+    # have not yet made their first request on the real host. The session
+    # cookie lives under the real host — a fake-host request never carries it
+    # and a Set-Cookie can't reach across hosts — so the reconnect logout has
+    # to happen on that first real-host request instead.
+    fresh_connect_ips = set()
+
     @app.before_request
     def redirect_probe_host_to_real_host():
         from urllib.parse import urlsplit
         real_host = urlsplit(app.config["PORTAL_BASE_URL"]).netloc  # e.g. "cybersafe.local:8000"
         if request.method != "GET":
             return  # never redirect POST — risks the browser dropping the body/converting to GET
-        if request.host == real_host:
-            return  # already on the real host (normal access, or already redirected once)
-        # Any other Host header reaching this app is, by construction, a device
-        # that isn't authorized yet and got here via the Pi's NAT redirect using
-        # some OS captive-portal probe's fake host (msftconnecttest.com, etc.).
-        # Send a real redirect so the browser's address bar updates to the
-        # actual app address — how commercial captive portals behave.
-        return redirect(app.config["PORTAL_BASE_URL"] + request.full_path.rstrip("?"), code=302)
+        if request.host != real_host:
+            # A fresh WiFi connection always starts with a fake-host
+            # captive-portal probe. Clear whatever session rode in under the
+            # fake host, and mark the device so its first request back on the
+            # real host — where the session cookie actually lives — starts a
+            # new session too. This forces a new login after every reconnect,
+            # for everyone uniformly — admin accounts included, that's
+            # intentional, not a bug.
+            session.clear()
+            if request.remote_addr:
+                fresh_connect_ips.add(request.remote_addr)
+            return redirect(app.config["PORTAL_BASE_URL"] + request.full_path.rstrip("?"), code=302)
+        if request.remote_addr in fresh_connect_ips:
+            # First request on the real host after a fresh connect: clear the
+            # session (the cookie is actually present in this request, unlike
+            # on the probe request above), then continue — the request is
+            # handled as logged-out, which for protected pages means a
+            # redirect to /login.
+            fresh_connect_ips.discard(request.remote_addr)
+            session.clear()
 
     @app.errorhandler(429)
     def too_many_requests(error):

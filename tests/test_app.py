@@ -393,6 +393,96 @@ def test_get_unknown_path_with_probe_host_redirects_to_real_host(client):
     )
 
 
+# ---------- Reconnect logout ----------
+
+def test_probe_host_reconnect_clears_session(client):
+    """A fresh WiFi reconnect — signalled by a request arriving under an OS
+    captive-portal probe's fake Host — must log the device out: the next
+    request on the real host starts a new session instead of silently
+    resuming the old one."""
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+
+    app = client.application
+    username = "reconnectlogout"
+    password = "R3connect#Logout"
+
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM users WHERE username = ?", (username,))
+        db.execute(
+            """INSERT INTO users
+               (full_name, username, email, password_hash, grade_section, role, is_password_set)
+               VALUES (?, ?, ?, ?, 'Grade 10', 'student', 1)""",
+            ("Reconnect Student", username, f"{username}@cybersafe.local",
+             generate_password_hash(password)),
+        )
+        db.commit()
+
+    try:
+        client.post("/login", data={"identifier": username, "step": "1"})
+        client.post("/login", data={"identifier": username, "step": "2", "password": password})
+        assert client.get("/dashboard").status_code == 200
+
+        # Fresh WiFi reconnect: the OS probe arrives under a fake host and
+        # gets the usual redirect to the real portal address.
+        response = client.get("/", headers={"Host": "msftconnecttest.com"})
+        assert response.status_code == 302
+        assert response.headers["Location"] == (
+            app.config["PORTAL_BASE_URL"] + "/"
+        )
+
+        # Back on the real host (same client, same cookie jar), the session
+        # must have been cleared — the dashboard now bounces to login.
+        response = client.get("/dashboard")
+        assert response.status_code == 302
+        assert "/login" in response.headers["Location"]
+    finally:
+        with app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM users WHERE username = ?", (username,))
+            db.commit()
+
+
+def test_normal_browsing_does_not_clear_session(client):
+    """Requests that arrive on the real host with no preceding fake-Host
+    probe must not clear the session — only a fresh reconnect logs out."""
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+
+    app = client.application
+    username = "keepmesignedin"
+    password = "K33p#SignedIn"
+
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM users WHERE username = ?", (username,))
+        db.execute(
+            """INSERT INTO users
+               (full_name, username, email, password_hash, grade_section, role, is_password_set)
+               VALUES (?, ?, ?, ?, 'Grade 10', 'student', 1)""",
+            ("Browsing Student", username, f"{username}@cybersafe.local",
+             generate_password_hash(password)),
+        )
+        db.commit()
+
+    try:
+        client.post("/login", data={"identifier": username, "step": "1"})
+        client.post("/login", data={"identifier": username, "step": "2", "password": password})
+        assert client.get("/dashboard").status_code == 200
+
+        # Ordinary navigation on the real host to a different page.
+        assert client.get("/leaderboard").status_code == 200
+
+        # Still logged in afterwards.
+        assert client.get("/dashboard").status_code == 200
+    finally:
+        with app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM users WHERE username = ?", (username,))
+            db.commit()
+
+
 # ---------- Question bulk import ----------
 
 QUESTION_IMPORT_HEADERS = [
