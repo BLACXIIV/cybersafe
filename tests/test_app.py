@@ -9,7 +9,14 @@ from security import MIN_LENGTH, validate_password, describe_problems
 @pytest.fixture
 def app():
     app = create_app()
-    app.config.update({"TESTING": True, "RATELIMIT_ENABLED": False})
+    app.config.update({
+        "TESTING": True,
+        "RATELIMIT_ENABLED": False,
+        # The test client's default Host is "localhost" — make that the
+        # configured real host so only genuinely foreign Host headers
+        # (captive-portal probes) trigger the before_request redirect.
+        "PORTAL_BASE_URL": "http://localhost",
+    })
     return app
 
 
@@ -339,6 +346,51 @@ def test_connect_success_links_ignore_probe_host_header(client):
             db.execute("DELETE FROM users WHERE username = ?", (username,))
             db.execute("DELETE FROM levels WHERE level_number = 995")
             db.commit()
+
+
+# ---------- Probe-host redirect to the real portal address ----------
+
+def test_get_with_probe_host_redirects_to_real_host(client):
+    """A GET arriving under an OS captive-portal probe's fake Host — which is
+    what the Pi's NAT redirect produces for unauthenticated devices — must
+    get a real 302 to the configured portal address so the browser's address
+    bar updates instead of staying on the fake host."""
+    response = client.get("/", headers={"Host": "msftconnecttest.com"})
+    assert response.status_code == 302
+    assert response.headers["Location"] == (
+        client.application.config["PORTAL_BASE_URL"] + "/"
+    )
+
+
+def test_get_with_real_host_serves_normally(client):
+    """Requests already addressed to the real portal host are not redirected."""
+    from urllib.parse import urlsplit
+    real_host = urlsplit(client.application.config["PORTAL_BASE_URL"]).netloc
+    response = client.get("/", headers={"Host": real_host})
+    assert response.status_code == 200
+    assert b"Learn Cybersecurity" in response.data
+
+
+def test_post_with_probe_host_is_not_redirected(client):
+    """POSTs are never redirected — a 302 risks the browser dropping the body
+    or converting it to a GET."""
+    response = client.post(
+        "/login",
+        data={"identifier": "nobody", "step": "1"},
+        headers={"Host": "msftconnecttest.com"},
+    )
+    assert response.status_code == 200
+
+
+def test_get_unknown_path_with_probe_host_redirects_to_real_host(client):
+    """The before_request redirect fires before the 404 handler runs, so a
+    probe path like Android's /generate_204 gets the absolute redirect to the
+    real host — not the 404 handler's relative redirect to the landing page."""
+    response = client.get("/generate_204", headers={"Host": "msftconnecttest.com"})
+    assert response.status_code == 302
+    assert response.headers["Location"] == (
+        client.application.config["PORTAL_BASE_URL"] + "/generate_204"
+    )
 
 
 # ---------- Question bulk import ----------

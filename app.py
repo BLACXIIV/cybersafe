@@ -19,6 +19,21 @@ def create_app():
     app.config.setdefault("RATELIMIT_ENABLED", not app.config.get("TESTING", False))
     limiter.init_app(app)
 
+    @app.before_request
+    def redirect_probe_host_to_real_host():
+        from urllib.parse import urlsplit
+        real_host = urlsplit(app.config["PORTAL_BASE_URL"]).netloc  # e.g. "cybersafe.local:8000"
+        if request.method != "GET":
+            return  # never redirect POST — risks the browser dropping the body/converting to GET
+        if request.host == real_host:
+            return  # already on the real host (normal access, or already redirected once)
+        # Any other Host header reaching this app is, by construction, a device
+        # that isn't authorized yet and got here via the Pi's NAT redirect using
+        # some OS captive-portal probe's fake host (msftconnecttest.com, etc.).
+        # Send a real redirect so the browser's address bar updates to the
+        # actual app address — how commercial captive portals behave.
+        return redirect(app.config["PORTAL_BASE_URL"] + request.full_path.rstrip("?"), code=302)
+
     @app.errorhandler(429)
     def too_many_requests(error):
         return render_template("429.html"), 429
