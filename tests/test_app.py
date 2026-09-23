@@ -393,7 +393,7 @@ def test_get_unknown_path_with_probe_host_redirects_to_real_host(client):
     )
 
 
-# ---------- Reconnect logout ----------
+# ---------- Reconnect handling ----------
 
 def _login_admin(client):
     """The seeded admin logs in through the same two-step LRN flow."""
@@ -404,17 +404,18 @@ def _login_admin(client):
     )
 
 
-def test_probe_host_reconnect_clears_session(client):
-    """A fresh WiFi reconnect — signalled by a request arriving under an OS
-    captive-portal probe's fake Host — must log the device out: the next
-    request on the real host starts a new session instead of silently
-    resuming the old one."""
+def test_probe_host_reconnect_keeps_session(client):
+    """A request arriving under an OS captive-portal probe's fake Host gets
+    redirected to the real portal address, but must NOT log the device out:
+    phones emit foreign-Host HTTP traffic constantly (all port-80 traffic is
+    DNAT'd to the app while the device is unvouchered), so treating it as a
+    reconnect kicked logged-in students mid-session."""
     from werkzeug.security import generate_password_hash
     from database.db import get_db
 
     app = client.application
-    username = "reconnectlogout"
-    password = "R3connect#Logout"
+    username = "reconnectkeep"
+    password = "R3connect#Keep"
 
     with app.app_context():
         db = get_db()
@@ -433,32 +434,16 @@ def test_probe_host_reconnect_clears_session(client):
         client.post("/login", data={"identifier": username, "step": "2", "password": password})
         assert client.get("/dashboard").status_code == 200
 
-        # An unrelated key proves the wipe is targeted: the reconnect pops
-        # only the "logged in" key, the rest of the session survives.
-        with client.session_transaction() as sess:
-            sess["marker"] = "survives-reconnect"
-
-        # Fresh WiFi reconnect: the OS probe arrives under a fake host and
-        # gets the usual redirect to the real portal address.
+        # Fake-host probe: still redirected to the real portal address.
         response = client.get("/", headers={"Host": "msftconnecttest.com"})
         assert response.status_code == 302
         assert response.headers["Location"] == (
             app.config["PORTAL_BASE_URL"] + "/"
         )
 
-        # Back on the real host (same client, same cookie jar), the first
-        # request drops the login. Check the session on a public page — a
-        # login_required 302 would session.clear() on its own and hide the
-        # distinction.
-        assert client.get("/").status_code == 200
-        with client.session_transaction() as sess:
-            assert "user_id" not in sess
-            assert sess.get("marker") == "survives-reconnect"
-
-        # And the now-anonymous device is bounced to login on protected pages.
-        response = client.get("/dashboard")
-        assert response.status_code == 302
-        assert "/login" in response.headers["Location"]
+        # Back on the real host (same client, same cookie jar), the session
+        # is untouched — the dashboard still renders.
+        assert client.get("/dashboard").status_code == 200
     finally:
         with app.app_context():
             db = get_db()
@@ -467,8 +452,7 @@ def test_probe_host_reconnect_clears_session(client):
 
 
 def test_normal_browsing_does_not_clear_session(client):
-    """Requests that arrive on the real host with no preceding fake-Host
-    probe must not clear the session — only a fresh reconnect logs out."""
+    """Ordinary navigation on the real host must not touch the session."""
     from werkzeug.security import generate_password_hash
     from database.db import get_db
 
@@ -503,27 +487,6 @@ def test_normal_browsing_does_not_clear_session(client):
             db = get_db()
             db.execute("DELETE FROM users WHERE username = ?", (username,))
             db.commit()
-
-
-def test_admin_session_survives_reconnect(client):
-    """Admin sessions are exempt from the reconnect logout — an admin's own
-    device does silent WiFi reconnects constantly while doing admin work, so
-    forcing re-login makes the admin panel unusable."""
-    _login_admin(client)
-    assert client.get("/admin/students").status_code == 200
-
-    # Fresh WiFi reconnect: probe under a fake host, then back on the real
-    # host (same pattern as the student reconnect test).
-    response = client.get("/", headers={"Host": "msftconnecttest.com"})
-    assert response.status_code == 302
-    assert response.headers["Location"] == (
-        client.application.config["PORTAL_BASE_URL"] + "/"
-    )
-    assert client.get("/").status_code == 302  # still logged in -> admin home
-
-    # The admin session survived: the panel still renders instead of
-    # bouncing to login.
-    assert client.get("/admin/students").status_code == 200
 
 
 def test_reconnect_during_login_does_not_expire_session(client):

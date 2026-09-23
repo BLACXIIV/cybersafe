@@ -19,28 +19,6 @@ def create_app():
     app.config.setdefault("RATELIMIT_ENABLED", not app.config.get("TESTING", False))
     limiter.init_app(app)
 
-    # IPs that just arrived via a captive-portal probe (fake Host header) and
-    # have not yet made their first request on the real host. The session
-    # cookie lives under the real host — a fake-host request never carries it
-    # and a Set-Cookie can't reach across hosts — so the reconnect logout has
-    # to happen on that first real-host request instead.
-    fresh_connect_ips = set()
-
-    def _drop_login_session():
-        # Pop only the "logged in" key — a full session.clear() would also
-        # wipe the transient two-step-login markers (login_lrn et al.), so a
-        # WiFi blip mid-login failed step 2 with "Session expired". Admin
-        # sessions are exempt: an admin's own device reconnects constantly
-        # while doing admin work.
-        user_id = session.get("user_id")
-        if user_id:
-            user = get_db().execute(
-                "SELECT role FROM users WHERE id = ?", (user_id,)
-            ).fetchone()
-            if user and user["role"] == "admin":
-                return
-        session.pop("user_id", None)
-
     @app.before_request
     def redirect_probe_host_to_real_host():
         from urllib.parse import urlsplit
@@ -48,23 +26,14 @@ def create_app():
         if request.method != "GET":
             return  # never redirect POST — risks the browser dropping the body/converting to GET
         if request.host != real_host:
-            # A fresh WiFi connection always starts with a fake-host
-            # captive-portal probe. No session cookie rides in under a fake
-            # host (cookies are host-scoped), so the drop here is normally a
-            # no-op — the point is marking the device so its first request
-            # back on the real host drops the login there instead.
-            _drop_login_session()
-            if request.remote_addr:
-                fresh_connect_ips.add(request.remote_addr)
+            # Captive-portal probes (and any other blocked port-80 traffic
+            # DNAT'd to this app) arrive under whatever foreign Host header
+            # the requester was reaching for. Answer with a real 302 to the
+            # portal address so the browser lands on the host where the
+            # session cookie lives. The session itself is never touched —
+            # foreign-Host requests fire constantly on phones, so treating
+            # them as a reconnect logged users out mid-session.
             return redirect(app.config["PORTAL_BASE_URL"] + request.full_path.rstrip("?"), code=302)
-        if request.remote_addr in fresh_connect_ips:
-            # First request on the real host after a fresh connect: drop the
-            # login (the cookie is actually present in this request, unlike
-            # on the probe request above), then continue — the request is
-            # handled as logged-out, which for protected pages means a
-            # redirect to /login.
-            fresh_connect_ips.discard(request.remote_addr)
-            _drop_login_session()
 
     @app.errorhandler(429)
     def too_many_requests(error):
