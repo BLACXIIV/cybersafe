@@ -176,6 +176,42 @@
   </div>
 
   <section class="admin-panel" style="margin-bottom:1.25rem;">
+    <div class="admin-panel-heading">
+      <h2>Most visited sites</h2>
+      <span>{{ period_label }} · <a href="{{ url_for('admin.activity', **report_args()) }}">Full log</a></span>
+    </div>
+    {% if top_domains %}
+      <div class="report-pie-wrap" aria-label="Pie chart of most visited domains">
+        <svg viewBox="0 0 42 42" class="report-pie">
+          {% set pie = namespace(offset=25) %}
+          {% for slice in top_domains %}
+            {% if slice.pct > 0 %}
+            <circle r="15.9155" cx="21" cy="21" fill="transparent"
+                    stroke="{{ slice.color }}" stroke-width="5"
+                    stroke-dasharray="{{ slice.pct }} 100"
+                    stroke-dashoffset="{{ pie.offset | round(2) }}"></circle>
+            {% endif %}
+            {% set pie.offset = pie.offset - slice.pct %}
+          {% endfor %}
+        </svg>
+        <div class="report-pie-legend report-pie-legend--grid">
+          {% for slice in top_domains %}
+            <div class="report-legend-item">
+              <span class="report-legend-dot" data-color="{{ slice.color }}"></span>
+              <div>
+                <strong>{{ slice.domain }}</strong>
+                <small>{{ slice.visits }} visit{{ 's' if slice.visits != 1 else '' }} · {{ slice.pct }}%</small>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <p class="admin-muted">No site visits recorded{% if period != 'all' %} in this period{% endif %}. Visits appear once students redeem vouchers and browse.</p>
+    {% endif %}
+  </section>
+
+  <section class="admin-panel" style="margin-bottom:1.25rem;">
     <div class="admin-panel-heading"><h2>Most-missed questions</h2><span>{{ period_label }}</span></div>
     {% if missed_questions %}
       <div class="missed-list">
@@ -261,6 +297,10 @@
 document.querySelectorAll('.dist-fill[data-w]').forEach(function(el) {
   const pct = Math.max(0, Math.min(100, parseFloat(el.dataset.w) || 0));
   requestAnimationFrame(function() { el.style.width = pct + '%'; });
+});
+// Same trick for legend dots: the slice color travels in data-color.
+document.querySelectorAll('.report-legend-dot[data-color]').forEach(function(el) {
+  el.style.background = el.dataset.color;
 });
 </script>
 <script>

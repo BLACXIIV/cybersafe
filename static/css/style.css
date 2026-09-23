@@ -1545,6 +1545,22 @@ button.nav-user { cursor: pointer; }
   flex: 0 0 12px;
 }
 
+.report-pie-legend--grid .report-legend-item { min-width: 0; }
+.report-pie-legend--grid strong { overflow-wrap: anywhere; }
+
+@media (min-width: 720px) {
+  .report-pie-legend--grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1.5rem;
+    align-content: center;
+  }
+}
+
+@media (min-width: 1080px) {
+  .report-pie-legend--grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 .report-legend-susceptible .report-legend-dot { background: var(--accent-red, #ef4444); }
 .report-legend-non .report-legend-dot { background: var(--accent-green, #22c55e); }
 

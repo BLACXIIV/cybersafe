@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Site Activity - Cyber-S.A.F.E.{% endblock %}
+
+{% block content %}
+<section class="admin-shell">
+  {% set admin_title = 'Site activity' %}
+  {% set admin_subtitle = 'Domains resolved by devices holding an active voucher, joined back to each student.' %}
+  {% include "components/admin_header.html" %}
+
+  <div class="admin-page">
+  <section class="admin-panel report-toolbar-panel">
+    <div class="report-toolbar">
+      <div class="period-chips" role="group" aria-label="Report period">
+        {% for key, label in periods.items() %}
+          <a class="period-chip{% if period == key %} is-active{% endif %}"
+             href="{{ url_for('admin.activity', **report_args(period=key)) }}"
+             {% if period == key %}aria-current="true"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    <p class="admin-muted report-period-note">Visits scoped to <strong>{{ period_label }}</strong>. Domain names only, page content is never visible. Times shown in {{ tz_label }}.</p>
+  </section>
+
+  <section class="admin-panel ranking-panel">
+    <div class="admin-panel-heading">
+      <h2>Site visits</h2>
+      <form method="get" id="ranking_filters" class="ranking-filters" action="{{ url_for('admin.activity') }}">
+        <input type="hidden" name="period" value="{{ period }}">
+        <input type="search" class="admin-input ranking-search" name="q" value="{{ q or '' }}" placeholder="Search name, LRN, or domain..." aria-label="Search visits" autocomplete="off">
+      </form>
+    </div>
+    <div id="ranking_results">
+      {% if visits %}
+        <div class="ranking-list">
+          {% for visit in visits %}
+            <div class="ranking-row">
+              <div class="ranking-name">
+                <strong>{{ visit['full_name'] }}</strong>
+                <small>{{ visit['username'] }}{% if visit['grade_section'] %} · {{ visit['grade_section'] }}{% endif %}</small>
+              </div>
+              <div class="ranking-stats">
+                <strong style="max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ visit['domain'] }}">{{ visit['domain'] }}</strong>
+                <small>{{ visit['visited_at'] }} {{ tz_label }}</small>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        {% if pagination.total_pages > 1 %}
+          <div class="ranking-pagination">
+            {% if pagination.has_prev %}
+              <a class="btn btn-sm btn-outline" href="{{ pagination.prev_url }}">Previous</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline disabled">Previous</span>
+            {% endif %}
+            <span class="ranking-page-info">Page {{ pagination.page }} of {{ pagination.total_pages }} · {{ pagination.total }} visit{{ 's' if pagination.total != 1 else '' }}</span>
+            {% if pagination.has_next %}
+              <a class="btn btn-sm btn-outline" href="{{ pagination.next_url }}">Next</a>
+            {% else %}
+              <span class="btn btn-sm btn-outline disabled">Next</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% else %}
+        <p class="admin-muted">
+          {% if q %}No visits match the current search.{% else %}No site visits recorded{% if period != 'all' %} in this period{% endif %}. They appear once students redeem vouchers and browse while connected.{% endif %}
+        </p>
+      {% endif %}
+    </div>
+  </section>
+
+<script>
+(function() {
+  const form = document.getElementById('ranking_filters');
+  const results = document.getElementById('ranking_results');
+  if (!form || !results) return;
+
+  const qInput = form.querySelector('input[name="q"]');
+  let debounceTimer = null;
+  let isSearching = false;
+
+  function updateUrl(params) {
+    const query = params.toString();
+    const cleanUrl = form.action + (query ? '?' + query : '');
+    history.replaceState({ path: cleanUrl }, '', cleanUrl);
+  }
+
+  function doSearch() {
+    if (isSearching) return;
+    isSearching = true;
+
+    const params = new URLSearchParams(new FormData(form));
+    if (!params.get('q')) params.delete('q');
+    if (params.get('period') === 'all') params.delete('period');
+
+    const query = params.toString();
+    const url = form.action + (query ? '?' + query : '');
+
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(response) {
+        if (!response.ok) throw new Error('Search failed');
+        return response.text();
+      })
+      .then(function(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const newResults = doc.getElementById('ranking_results');
+        if (newResults) {
+          results.innerHTML = newResults.innerHTML;
+        }
+        updateUrl(params);
+      })
+      .catch(function(err) {
+        console.error('Live search error:', err);
+      })
+      .finally(function() {
+        isSearching = false;
+      });
+  }
+
+  function scheduleSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(doSearch, 250);
+  }
+
+  if (qInput) {
+    qInput.addEventListener('input', scheduleSearch);
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    doSearch();
+  });
+})();
+</script>
+
+  </div>
+</section>
+{% endblock %}

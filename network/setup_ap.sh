@@ -52,10 +52,14 @@ systemctl unmask hostapd
 echo "==> Installing dnsmasq config"
 install -m 644 "$REPO_DIR/network/dnsmasq-ap.conf" /etc/dnsmasq.d/cybersafe-ap.conf
 
-echo "==> Installing systemd units (static IP, ipset, boot reconciler, overrides)"
+echo "==> Installing systemd units (static IP, ipset, boot reconciler, visit logger, overrides)"
 install -m 644 "$REPO_DIR/network/systemd/cybersafe-wlan0-ip.service" /etc/systemd/system/cybersafe-wlan0-ip.service
 install -m 644 "$REPO_DIR/network/systemd/cybersafe-ipset.service" /etc/systemd/system/cybersafe-ipset.service
 install -m 644 "$REPO_DIR/network/systemd/cybersafe-reconcile.service" /etc/systemd/system/cybersafe-reconcile.service
+install -m 644 "$REPO_DIR/network/systemd/cybersafe-site-visits.service" /etc/systemd/system/cybersafe-site-visits.service
+
+echo "==> Installing the DNS log rotation rule (keeps /var/log/cybersafe-dns.log bounded)"
+install -m 644 "$REPO_DIR/network/logrotate-cybersafe-dns" /etc/logrotate.d/cybersafe-dns
 
 mkdir -p /etc/systemd/system/hostapd.service.d
 install -m 644 "$REPO_DIR/network/systemd/hostapd.service.d-override.conf" /etc/systemd/system/hostapd.service.d/override.conf
@@ -104,13 +108,14 @@ netfilter-persistent save
 
 echo "==> Enabling everything to start on boot"
 systemctl daemon-reload
-systemctl enable cybersafe-wlan0-ip.service cybersafe-ipset.service cybersafe-reconcile.service
+systemctl enable cybersafe-wlan0-ip.service cybersafe-ipset.service cybersafe-reconcile.service cybersafe-site-visits.service
 systemctl enable hostapd dnsmasq netfilter-persistent
 
 echo "==> Starting the access point now"
 systemctl start cybersafe-wlan0-ip.service
 systemctl start hostapd
 systemctl restart dnsmasq
+systemctl start cybersafe-site-visits.service
 
 echo ""
 echo "Done. wlan0 is now broadcasting the AP on 10.42.0.1/24."

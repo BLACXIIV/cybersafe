@@ -597,3 +597,214 @@ def test_import_questions_from_excel(client):
         finally:
             _wipe_test_data()
             db.commit()
+
+
+# ---------- Site-visit logging ----------
+
+def _login_admin(client):
+    """The seeded admin logs in through the same two-step LRN flow."""
+    client.post("/login", data={"identifier": "123456789012", "step": "1"})
+    client.post(
+        "/login",
+        data={"identifier": "123456789012", "step": "2", "password": "admin"},
+    )
+
+
+def test_admin_activity_scopes_visits_to_the_right_student(client):
+    """Visits recorded against each voucher holder render under that
+    student's name, most recent first, and honor the period filter.
+
+    Assertions tolerate unrelated rows already in site_visits: rows are
+    matched by test-marker domains, never by absolute position."""
+    import re
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+
+    app = client.application
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM site_visits WHERE domain LIKE '%.activity.test'")
+        db.execute("DELETE FROM vouchers WHERE code IN ('ACTV001', 'ACTV002')")
+        db.execute("DELETE FROM users WHERE username IN ('activityone', 'activitytwo')")
+        db.execute("DELETE FROM levels WHERE level_number = 994")
+        db.execute("INSERT INTO levels (level_number, name) VALUES (994, 'Activity Test')")
+        level_id = db.execute(
+            "SELECT id FROM levels WHERE level_number = 994"
+        ).fetchone()["id"]
+        user_ids = {}
+        for username, full_name, ip in (
+            ("activityone", "Ana Reyes", "10.42.0.101"),
+            ("activitytwo", "Jose Ramos", "10.42.0.102"),
+        ):
+            db.execute(
+                """INSERT INTO users
+                   (full_name, username, email, password_hash, grade_section, role, is_password_set)
+                   VALUES (?, ?, ?, ?, 'Grade 10', 'student', 1)""",
+                (full_name, username, f"{username}@cybersafe.local",
+                 generate_password_hash("Act1vity#Test")),
+            )
+            user_ids[username] = db.execute(
+                "SELECT id FROM users WHERE username = ?", (username,)
+            ).fetchone()["id"]
+
+        ana, jose = user_ids["activityone"], user_ids["activitytwo"]
+        db.execute(
+            """INSERT INTO vouchers (user_id, level_id, code, used_at, expires_at, ip_address)
+               VALUES (?, ?, 'ACTV001', CURRENT_TIMESTAMP, datetime('now', '+1 hours'), '10.42.0.101')""",
+            (ana, level_id),
+        )
+        db.execute(
+            """INSERT INTO vouchers (user_id, level_id, code, used_at, expires_at, ip_address)
+               VALUES (?, ?, 'ACTV002', CURRENT_TIMESTAMP, datetime('now', '+1 hours'), '10.42.0.102')""",
+            (jose, level_id),
+        )
+        # The three newest visits, so they land on page 1 in this order.
+        for user_id, domain, when in (
+            (ana, "alpha.activity.test", "-1 minutes"),
+            (jose, "bravo.activity.test", "-2 minutes"),
+            (ana, "charlie.activity.test", "-3 minutes"),
+        ):
+            db.execute(
+                f"INSERT INTO site_visits (user_id, domain, visited_at) "
+                f"VALUES (?, ?, datetime('now', '{when}'))",
+                (user_id, domain),
+            )
+        # Out of "today" range; searched directly rather than paged to.
+        db.execute(
+            """INSERT INTO site_visits (user_id, domain, visited_at)
+               VALUES (?, 'delta.activity.test', datetime('now', '-3 days'))""",
+            (ana,),
+        )
+        # Old but numerous: guarantees a slice in the donut's top 8 without
+        # disturbing the page-1 ordering checks above.
+        for _ in range(60):
+            db.execute(
+                """INSERT INTO site_visits (user_id, domain, visited_at)
+                   VALUES (?, 'pie.activity.test', datetime('now', '-4 days'))""",
+                (ana,),
+            )
+        db.commit()
+
+    try:
+        # Not logged in -> bounced to login.
+        assert client.get("/admin/activity").status_code == 302
+
+        _login_admin(client)
+        response = client.get("/admin/activity")
+        assert response.status_code == 200
+        data = response.data
+
+        # Each row binds the student name to the domain inside one
+        # ranking-row, so extracting pairs asserts attribution directly.
+        pairs = {
+            (name, domain)
+            for name, _sub, domain in re.findall(
+                rb'<div class="ranking-name">\s*<strong>([^<]+)</strong>\s*'
+                rb'<small>([^<]*)</small>\s*</div>\s*'
+                rb'<div class="ranking-stats">\s*<strong[^>]*title="([^"]+)"',
+                data,
+            )
+        }
+        assert (b"Ana Reyes", b"alpha.activity.test") in pairs
+        assert (b"Ana Reyes", b"charlie.activity.test") in pairs
+        assert (b"Jose Ramos", b"bravo.activity.test") in pairs
+        assert (b"Jose Ramos", b"alpha.activity.test") not in pairs
+
+        # Most recent first: alpha, bravo, charlie.
+        assert (data.index(b"alpha.activity.test")
+                < data.index(b"bravo.activity.test")
+                < data.index(b"charlie.activity.test"))
+
+        # The 3-day-old visit exists in All time but not under Today.
+        # Rows carry title="<domain>", so match that rather than the bare
+        # string (the search box echoes q back into the page).
+        search = client.get("/admin/activity", query_string={"q": "delta.activity.test"})
+        assert b'title="delta.activity.test"' in search.data
+        today = client.get(
+            "/admin/activity", query_string={"period": "today", "q": "delta.activity.test"}
+        )
+        assert b'title="delta.activity.test"' not in today.data
+        assert b"alpha.activity.test" in client.get(
+            "/admin/activity", query_string={"period": "today"}
+        ).data
+
+        # The analytics report renders the donut off the same data.
+        analytics = client.get("/admin/analytics")
+        assert analytics.status_code == 200
+        assert b"Most visited sites" in analytics.data
+        assert b"pie.activity.test" in analytics.data
+    finally:
+        with app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM site_visits WHERE domain LIKE '%.activity.test'")
+            db.execute("DELETE FROM vouchers WHERE code IN ('ACTV001', 'ACTV002')")
+            db.execute("DELETE FROM users WHERE username IN ('activityone', 'activitytwo')")
+            db.execute("DELETE FROM levels WHERE level_number = 994")
+            db.commit()
+
+
+def test_top_domains_groups_limits_and_buckets(client):
+    """The donut data keeps the top 8 domains and folds the rest into Other.
+
+    Runs inside a never-committed transaction: the wipe + fixture rows are
+    only visible to this connection and rolled back afterwards, so real
+    site_visits data survives the test."""
+    from datetime import datetime, timedelta
+    from admin import TOP_DOMAIN_LIMIT, _top_domains
+    from database.db import get_db
+
+    app = client.application
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM users WHERE username = 'topdomains'")
+        db.commit()
+        try:
+            db.execute("DELETE FROM site_visits")
+            db.execute(
+                """INSERT INTO users
+                   (full_name, username, email, password_hash, role, is_password_set)
+                   VALUES ('Top Domains', 'topdomains', 'topdomains@cybersafe.local', '', 'student', 1)"""
+            )
+            user_id = db.execute(
+                "SELECT id FROM users WHERE username = 'topdomains'"
+            ).fetchone()["id"]
+            # site01 gets 10 visits, site02 gets 9, ... site10 gets 1.
+            for i in range(10):
+                for _ in range(10 - i):
+                    db.execute(
+                        "INSERT INTO site_visits (user_id, domain) VALUES (?, ?)",
+                        (user_id, f"site{i + 1:02d}.topdomains.test"),
+                    )
+            db.execute(
+                """INSERT INTO site_visits (user_id, domain, visited_at)
+                   VALUES (?, 'stale.topdomains.test', datetime('now', '-3 days'))""",
+                (user_id,),
+            )
+
+            total = 56
+            slices = _top_domains(db, None)
+            assert len(slices) == TOP_DOMAIN_LIMIT + 1
+            assert [s["domain"] for s in slices[:3]] == [
+                "site01.topdomains.test",
+                "site02.topdomains.test",
+                "site03.topdomains.test",
+            ]
+            assert [s["visits"] for s in slices[:3]] == [10, 9, 8]
+            for i, s in enumerate(slices[:TOP_DOMAIN_LIMIT]):
+                expected = (10 - i) / total
+                assert s["pct"] == round(expected * 100, 1)
+                assert s["color"]
+
+            # Everything past the top 8 folds into Other (site09's 2 +
+            # site10's 1 + the stale row's 1).
+            assert slices[-1]["domain"] == "Other"
+            assert slices[-1]["visits"] == 4
+            assert slices[-1]["pct"] == round(4 / total * 100, 1)
+
+            # A period start excludes the stale row entirely.
+            recent = _top_domains(db, datetime.utcnow() - timedelta(hours=1))
+            domains = [s["domain"] for s in recent]
+            assert "stale.topdomains.test" not in domains
+            assert recent[-1]["domain"] == "Other" and recent[-1]["visits"] == 3
+        finally:
+            db.rollback()

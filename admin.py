@@ -2,7 +2,7 @@ import csv
 import os
 import re
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO, StringIO
 
@@ -30,6 +30,15 @@ REPORT_PERIODS = {
 }
 
 SUSCEPTIBLE_BADGES = ("Bronze", "Silver")
+
+# "Most visited sites" donut: slice colors are all existing stylesheet
+# accents; anything past the top N folds into an "Other" slice in muted grey.
+TOP_DOMAIN_LIMIT = 8
+TOP_DOMAIN_COLORS = (
+    "#22d3ee", "#2f6fed", "#4d8bff", "#22c55e",
+    "#f59e0b", "#ef4444", "#facc15", "#a1a1aa",
+)
+OTHER_DOMAIN_COLOR = "#4b5a78"  # --text-tertiary
 
 
 def _normalize_grade_name(name):
@@ -367,6 +376,24 @@ def _period_start(period):
     return None
 
 
+def _utc_to_local(iso):
+    """'YYYY-MM-DD HH:MM:SS' UTC -> same format in the server's local timezone."""
+    return (
+        datetime.strptime(iso, "%Y-%m-%d %H:%M:%S")
+        .replace(tzinfo=timezone.utc)
+        .astimezone()
+        .strftime("%Y-%m-%d %H:%M:%S")
+    )
+
+
+def _local_tz_label():
+    """Display label for the server's local offset, e.g. 'UTC+8'."""
+    minutes = int(datetime.now(timezone.utc).astimezone().utcoffset().total_seconds() // 60)
+    sign = "+" if minutes >= 0 else "-"
+    hours, rem = divmod(abs(minutes), 60)
+    return f"UTC{sign}{hours}" + (f":{rem:02d}" if rem else "")
+
+
 def _report_data(db, period):
     """Assemble report metrics. Badge/susceptibility state is cumulative (no
     historical snapshots); the period only scopes activity metrics."""
@@ -512,6 +539,31 @@ def _report_data(db, period):
         "by_mission": by_mission,
         "missed_questions": missed_questions,
     }
+
+
+def _top_domains(db, start):
+    """Most-visited domains since `start` (None = all time), each annotated
+    with its share (pct) and donut color. Domains past TOP_DOMAIN_LIMIT fold
+    into an "Other" slice so the chart stays readable."""
+    cond = "visited_at >= ?" if start else "1=1"
+    params = (start.strftime("%Y-%m-%d %H:%M:%S"),) if start else ()
+    rows = db.execute(
+        f"""SELECT domain, COUNT(*) AS visits FROM site_visits
+            WHERE {cond} GROUP BY domain ORDER BY visits DESC LIMIT ?""",
+        (*params, TOP_DOMAIN_LIMIT),
+    ).fetchall()
+    total = db.execute(
+        f"SELECT COUNT(*) AS c FROM site_visits WHERE {cond}", params
+    ).fetchone()["c"]
+
+    slices = [dict(r) for r in rows]
+    other = total - sum(s["visits"] for s in slices)
+    if other:
+        slices.append({"domain": "Other", "visits": other})
+    for i, s in enumerate(slices):
+        s["pct"] = round(s["visits"] / total * 100, 1) if total else 0
+        s["color"] = TOP_DOMAIN_COLORS[i] if i < len(TOP_DOMAIN_COLORS) else OTHER_DOMAIN_COLOR
+    return slices
 
 
 def _apply_roster_filters(rows, badge_filter, grade_filter, q):
@@ -877,6 +929,7 @@ def analytics():
     return render_template(
         "admin_analytics.html",
         **{k: v for k, v in data.items() if k != "susceptible"},
+        top_domains=_top_domains(db, _period_start(period)),
         period=period,
         periods=REPORT_PERIODS,
         period_label=REPORT_PERIODS[period],
@@ -888,6 +941,65 @@ def analytics():
         grade_options=[g["name"] for g in _sorted_grades(db)],
         badges=BADGE_TITLES,
         report_args=lambda **kw: _report_args(period, badge_filter, grade_filter, q, **kw),
+    )
+
+
+@bp.route("/activity")
+@admin_required
+@limiter.limit("60 per minute")
+def activity():
+    """Site visits: domains resolved by devices holding an active voucher,
+    joined back to the student who redeemed it. Domain-level only."""
+    db = get_db()
+    period = request.args.get("period", "all")
+    if period not in REPORT_PERIODS:
+        period = "all"
+    q = request.args.get("q", "").strip().lower()
+    page = request.args.get("page", 1, type=int)
+
+    start = _period_start(period)
+    cond = "sv.visited_at >= ?" if start else "1=1"
+    params = (start.strftime("%Y-%m-%d %H:%M:%S"),) if start else ()
+    visits = db.execute(
+        f"""SELECT sv.visited_at, sv.domain,
+                   u.full_name, u.username, u.grade_section
+            FROM site_visits sv
+            JOIN users u ON u.id = sv.user_id
+            WHERE {cond} AND u.role = 'student'
+            ORDER BY sv.visited_at DESC, sv.id DESC""",
+        params,
+    ).fetchall()
+
+    if q:
+        visits = [
+            v for v in visits
+            if q in v["full_name"].lower()
+            or q in v["username"].lower()
+            or q in v["domain"].lower()
+        ]
+
+    def page_url(page_num):
+        args = _report_args(period, "", "", q)
+        if page_num != 1:
+            args["page"] = page_num
+        return url_for("admin.activity", **args)
+
+    paginated, pagination = _paginate(visits, page, 10, page_url)
+    paginated = [
+        {key: v[key] for key in v.keys()} | {"visited_at": _utc_to_local(v["visited_at"])}
+        for v in paginated
+    ]
+
+    return render_template(
+        "admin_activity.html",
+        visits=paginated,
+        tz_label=_local_tz_label(),
+        pagination=pagination,
+        period=period,
+        periods=REPORT_PERIODS,
+        period_label=REPORT_PERIODS[period],
+        q=q,
+        report_args=lambda **kw: _report_args(period, "", "", q, **kw),
     )
 
 

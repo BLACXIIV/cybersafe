@@ -91,8 +91,9 @@ when it's done.
 | `network/dnsmasq-ap.conf` | `/etc/dnsmasq.d/cybersafe-ap.conf` | DHCP + DNS for wlan0 |
 | `network/cybersafe-grant-access` | `/usr/local/sbin/cybersafe-grant-access` | Root helper the app calls via sudo |
 | `network/sudoers-cybersafe` | `/etc/sudoers.d/cybersafe` | Lets `pi` run *only* that helper as root |
-| `network/systemd/*.service` | `/etc/systemd/system/` | Static IP, ipset creation, boot reconciliation |
+| `network/systemd/*.service` | `/etc/systemd/system/` | Static IP, ipset creation, boot reconciliation, site-visit logger |
 | `network/systemd/*-override.conf` | `/etc/systemd/system/{hostapd,netfilter-persistent}.service.d/override.conf` | Correct startup ordering |
+| `network/logrotate-cybersafe-dns` | `/etc/logrotate.d/cybersafe-dns` | Rotates `/var/log/cybersafe-dns.log` daily, keeps 7 days |
 
 The app's own changes (already applied in this repo):
 - `vouchers` table gained `mac_address` and `ip_address` columns.
@@ -101,6 +102,22 @@ The app's own changes (already applied in this repo):
   place that flips a voucher on/off and opens/closes the gate; `main.py`'s
   two internet-access routes and `levels.connect()` all call it instead of
   updating the database directly.
+
+## Site-visit logging
+
+`dnsmasq-ap.conf` has `log-queries=extra` + `log-facility=/var/log/cybersafe-dns.log`,
+so every domain a connected device resolves lands in that file. The
+`cybersafe-site-visits` service (`network/log_site_visits.py`) tails it and
+writes one `site_visits` row per student per domain (throttled to one per
+minute), which the admin sees under `/admin/activity` and the "Most visited
+sites" chart on `/admin/analytics`. It's domain-level only by design — HTTPS
+hides page URLs and content, the resolver name is all that is logged.
+
+This requires a logrotate entry: without it `/var/log/cybersafe-dns.log`
+grows unbounded. `setup_ap.sh` installs `network/logrotate-cybersafe-dns` to
+`/etc/logrotate.d/cybersafe-dns` (rotates daily, keeps 7 days); on an
+existing install, copy it over and restart `dnsmasq` after pulling the new
+`dnsmasq-ap.conf`.
 
 ## Changing the voucher duration
 

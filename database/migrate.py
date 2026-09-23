@@ -9,6 +9,7 @@ Run after updating schema.sql or questions_data.json:
 What it does:
 - Adds `questions.explanation` if missing.
 - Creates the `vouchers` table if missing.
+- Creates the `site_visits` table if missing.
 - Updates questions/choices from `database/questions_data.json`.
 - Recomputes stored points to match the latest choice point values.
 """
@@ -79,6 +80,20 @@ def migrate():
         if "mac_address" not in voucher_columns:
             cur.execute("ALTER TABLE vouchers ADD COLUMN mac_address TEXT")
             print("Added vouchers.mac_address column.")
+
+    # 2c. Create site_visits table + indexes if missing (DNS visit logging).
+    if "site_visits" not in tables:
+        cur.execute(
+            """CREATE TABLE site_visits (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL REFERENCES users(id),
+                domain     TEXT NOT NULL,
+                visited_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )"""
+        )
+        cur.execute("CREATE INDEX idx_site_visits_user ON site_visits(user_id)")
+        cur.execute("CREATE INDEX idx_site_visits_domain ON site_visits(domain)")
+        print("Created site_visits table.")
 
     # 3. Update questions and choices from JSON.
     level_count = 0

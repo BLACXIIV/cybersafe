@@ -1,0 +1,14 @@
+/var/log/cybersafe-dns.log {
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    postrotate
+        # dnsmasq reopens its log file on SIGUSR2 (see the dnsmasq man page,
+        # --log-facility); without this it keeps writing to the rotated file.
+        systemctl kill --signal=SIGUSR2 dnsmasq.service >/dev/null 2>&1 || true
+    endscript
+}

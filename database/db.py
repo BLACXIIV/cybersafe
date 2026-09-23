@@ -121,6 +121,14 @@ def ensure_admin_data(app):
             name TEXT NOT NULL UNIQUE,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS site_visits (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id    INTEGER NOT NULL REFERENCES users(id),
+            domain     TEXT NOT NULL,
+            visited_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_site_visits_user ON site_visits(user_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_site_visits_domain ON site_visits(domain)")
         db.execute(
             "INSERT OR IGNORE INTO school_settings (id, school_name) VALUES (1, ?)",
             ("Cyber-S.A.F.E. School",),

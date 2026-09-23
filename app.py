@@ -121,4 +121,10 @@ if __name__ == "__main__":
         ensure_admin_data(app)
         print("Database initialized at", app.config["DATABASE_PATH"])
 
+    # Dev-only default so the portal host check doesn't bounce local
+    # requests to the deployed Pi; production runs gunicorn, which never
+    # reaches this block and keeps the cybersafe.local default.
+    app.config["PORTAL_BASE_URL"] = os.environ.get(
+        "CYBERSAFE_PORTAL_BASE_URL", "http://localhost:5000"
+    )
     app.run(debug=True, host="0.0.0.0", port=5000)

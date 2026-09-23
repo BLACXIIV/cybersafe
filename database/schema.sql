@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS questions;
 DROP TABLE IF EXISTS choices;
 DROP TABLE IF EXISTS user_answers;
 DROP TABLE IF EXISTS user_level_progress;
+DROP TABLE IF EXISTS site_visits;
 
 CREATE TABLE users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,6 +90,19 @@ CREATE TABLE vouchers (
     mac_address TEXT,  -- client MAC, used to open/close the firewall gate for this device
     UNIQUE(user_id, level_id)
 );
+
+-- Domains a voucher holder's device resolved via the AP's dnsmasq,
+-- collected by network/log_site_visits.py. Domain-level only on purpose:
+-- HTTPS hides URLs and content, the resolver name is all we ever see.
+CREATE TABLE site_visits (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id),
+    domain     TEXT NOT NULL,
+    visited_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_site_visits_user ON site_visits(user_id);
+CREATE INDEX idx_site_visits_domain ON site_visits(domain);
 
 CREATE TABLE school_settings (
     id         INTEGER PRIMARY KEY CHECK (id = 1),

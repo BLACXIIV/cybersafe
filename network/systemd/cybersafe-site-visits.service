@@ -1,0 +1,16 @@
+[Unit]
+Description=Record DNS domains visited by active Cyber-S.A.F.E. voucher holders
+After=network-online.target dnsmasq.service cybersafe.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/cybersafe
+Environment="CYBERSAFE_DB_PATH=/home/pi/cybersafe/database/cybersafe.db"
+ExecStart=/home/pi/cybersafe/.venv/bin/python /home/pi/cybersafe/network/log_site_visits.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
