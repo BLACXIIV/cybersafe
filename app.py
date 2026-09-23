@@ -26,6 +26,21 @@ def create_app():
     # to happen on that first real-host request instead.
     fresh_connect_ips = set()
 
+    def _drop_login_session():
+        # Pop only the "logged in" key — a full session.clear() would also
+        # wipe the transient two-step-login markers (login_lrn et al.), so a
+        # WiFi blip mid-login failed step 2 with "Session expired". Admin
+        # sessions are exempt: an admin's own device reconnects constantly
+        # while doing admin work.
+        user_id = session.get("user_id")
+        if user_id:
+            user = get_db().execute(
+                "SELECT role FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+            if user and user["role"] == "admin":
+                return
+        session.pop("user_id", None)
+
     @app.before_request
     def redirect_probe_host_to_real_host():
         from urllib.parse import urlsplit
@@ -34,24 +49,22 @@ def create_app():
             return  # never redirect POST — risks the browser dropping the body/converting to GET
         if request.host != real_host:
             # A fresh WiFi connection always starts with a fake-host
-            # captive-portal probe. Clear whatever session rode in under the
-            # fake host, and mark the device so its first request back on the
-            # real host — where the session cookie actually lives — starts a
-            # new session too. This forces a new login after every reconnect,
-            # for everyone uniformly — admin accounts included, that's
-            # intentional, not a bug.
-            session.clear()
+            # captive-portal probe. No session cookie rides in under a fake
+            # host (cookies are host-scoped), so the drop here is normally a
+            # no-op — the point is marking the device so its first request
+            # back on the real host drops the login there instead.
+            _drop_login_session()
             if request.remote_addr:
                 fresh_connect_ips.add(request.remote_addr)
             return redirect(app.config["PORTAL_BASE_URL"] + request.full_path.rstrip("?"), code=302)
         if request.remote_addr in fresh_connect_ips:
-            # First request on the real host after a fresh connect: clear the
-            # session (the cookie is actually present in this request, unlike
+            # First request on the real host after a fresh connect: drop the
+            # login (the cookie is actually present in this request, unlike
             # on the probe request above), then continue — the request is
             # handled as logged-out, which for protected pages means a
             # redirect to /login.
             fresh_connect_ips.discard(request.remote_addr)
-            session.clear()
+            _drop_login_session()
 
     @app.errorhandler(429)
     def too_many_requests(error):

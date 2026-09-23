@@ -395,6 +395,15 @@ def test_get_unknown_path_with_probe_host_redirects_to_real_host(client):
 
 # ---------- Reconnect logout ----------
 
+def _login_admin(client):
+    """The seeded admin logs in through the same two-step LRN flow."""
+    client.post("/login", data={"identifier": "123456789012", "step": "1"})
+    client.post(
+        "/login",
+        data={"identifier": "123456789012", "step": "2", "password": "admin"},
+    )
+
+
 def test_probe_host_reconnect_clears_session(client):
     """A fresh WiFi reconnect — signalled by a request arriving under an OS
     captive-portal probe's fake Host — must log the device out: the next
@@ -424,6 +433,11 @@ def test_probe_host_reconnect_clears_session(client):
         client.post("/login", data={"identifier": username, "step": "2", "password": password})
         assert client.get("/dashboard").status_code == 200
 
+        # An unrelated key proves the wipe is targeted: the reconnect pops
+        # only the "logged in" key, the rest of the session survives.
+        with client.session_transaction() as sess:
+            sess["marker"] = "survives-reconnect"
+
         # Fresh WiFi reconnect: the OS probe arrives under a fake host and
         # gets the usual redirect to the real portal address.
         response = client.get("/", headers={"Host": "msftconnecttest.com"})
@@ -432,8 +446,16 @@ def test_probe_host_reconnect_clears_session(client):
             app.config["PORTAL_BASE_URL"] + "/"
         )
 
-        # Back on the real host (same client, same cookie jar), the session
-        # must have been cleared — the dashboard now bounces to login.
+        # Back on the real host (same client, same cookie jar), the first
+        # request drops the login. Check the session on a public page — a
+        # login_required 302 would session.clear() on its own and hide the
+        # distinction.
+        assert client.get("/").status_code == 200
+        with client.session_transaction() as sess:
+            assert "user_id" not in sess
+            assert sess.get("marker") == "survives-reconnect"
+
+        # And the now-anonymous device is bounced to login on protected pages.
         response = client.get("/dashboard")
         assert response.status_code == 302
         assert "/login" in response.headers["Location"]
@@ -476,6 +498,78 @@ def test_normal_browsing_does_not_clear_session(client):
 
         # Still logged in afterwards.
         assert client.get("/dashboard").status_code == 200
+    finally:
+        with app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM users WHERE username = ?", (username,))
+            db.commit()
+
+
+def test_admin_session_survives_reconnect(client):
+    """Admin sessions are exempt from the reconnect logout — an admin's own
+    device does silent WiFi reconnects constantly while doing admin work, so
+    forcing re-login makes the admin panel unusable."""
+    _login_admin(client)
+    assert client.get("/admin/students").status_code == 200
+
+    # Fresh WiFi reconnect: probe under a fake host, then back on the real
+    # host (same pattern as the student reconnect test).
+    response = client.get("/", headers={"Host": "msftconnecttest.com"})
+    assert response.status_code == 302
+    assert response.headers["Location"] == (
+        client.application.config["PORTAL_BASE_URL"] + "/"
+    )
+    assert client.get("/").status_code == 302  # still logged in -> admin home
+
+    # The admin session survived: the panel still renders instead of
+    # bouncing to login.
+    assert client.get("/admin/students").status_code == 200
+
+
+def test_reconnect_during_login_does_not_expire_session(client):
+    """A WiFi blip between login step 1 (LRN) and step 2 (password) must not
+    wipe the transient login markers — mobile devices reconnect silently on
+    screen lock/backgrounding, mid-login."""
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+
+    app = client.application
+    username = "midloginblip"
+    password = "M1dLogin#Blip"
+
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM users WHERE username = ?", (username,))
+        db.execute(
+            """INSERT INTO users
+               (full_name, username, email, password_hash, grade_section, role, is_password_set)
+               VALUES (?, ?, ?, ?, 'Grade 10', 'student', 1)""",
+            ("Mid Login", username, f"{username}@cybersafe.local",
+             generate_password_hash(password)),
+        )
+        db.commit()
+
+    try:
+        # Step 1 stores login_lrn/login_user_id and renders the password form.
+        assert client.post(
+            "/login", data={"identifier": username, "step": "1"}
+        ).status_code == 200
+
+        # WiFi blip mid-login: fake-host probe, then the first real-host
+        # request it triggers.
+        assert client.get(
+            "/", headers={"Host": "msftconnecttest.com"}
+        ).status_code == 302
+        assert client.get("/").status_code == 200
+
+        # Step 2 still finds the markers and completes the login — before the
+        # fix this redirected to /login with "Session expired".
+        response = client.post(
+            "/login",
+            data={"identifier": username, "step": "2", "password": password},
+        )
+        assert response.status_code == 302
+        assert "/dashboard" in response.headers["Location"]
     finally:
         with app.app_context():
             db = get_db()
@@ -600,15 +694,6 @@ def test_import_questions_from_excel(client):
 
 
 # ---------- Site-visit logging ----------
-
-def _login_admin(client):
-    """The seeded admin logs in through the same two-step LRN flow."""
-    client.post("/login", data={"identifier": "123456789012", "step": "1"})
-    client.post(
-        "/login",
-        data={"identifier": "123456789012", "step": "2", "password": "admin"},
-    )
-
 
 def test_admin_activity_scopes_visits_to_the_right_student(client):
     """Visits recorded against each voucher holder render under that
