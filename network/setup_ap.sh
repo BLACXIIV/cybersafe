@@ -6,6 +6,11 @@
 #   cd ~/cybersafe
 #   sudo bash network/setup_ap.sh
 #
+# WARNING: never run this over the cybersafe WiFi itself — the script stops
+# hostapd/dnsmasq mid-run, which kills the AP and your SSH session with it.
+# Run it over Ethernet (SSH to the Pi's router-side IP), or on a local
+# keyboard/monitor console.
+#
 # Prerequisites:
 #   - Edit network/hostapd.conf first (ssid / wpa_passphrase).
 #   - eth0 is already your uplink to the internet (per DEPLOYMENT.md).
