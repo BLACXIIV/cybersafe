@@ -139,6 +139,9 @@
         return response.text();
       })
       .then(function(html) {
+        // The admin tabs swap .admin-page without a reload; if that happened
+        // mid-fetch, applying the response would corrupt the new page's URL.
+        if (!form.isConnected) return;
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const newResults = doc.getElementById('ranking_results');
@@ -190,7 +193,15 @@
     refreshBtn.addEventListener('click', refresh);
   }
 
-  setInterval(function() {
+  const refreshTimer = setInterval(function() {
+    // After a tab swap this page's nodes are detached but the interval
+    // survives — without this guard it kept replaceState-ing the URL bar
+    // back to /admin/activity, so the Students register form POSTed to a
+    // GET-only route and got a 405.
+    if (!form.isConnected) {
+      clearInterval(refreshTimer);
+      return;
+    }
     // Don't poll a hidden tab, and don't clobber the results while the
     // admin is mid-keystroke in the search box.
     if (document.hidden || document.activeElement === qInput) return;
