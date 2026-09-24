@@ -27,6 +27,21 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+# Refuse to run from a session that rides the AP being configured: the
+# hostapd stop below would kill the WiFi under this SSH connection and
+# orphan the script mid-run with services left down.
+ssh_client_ip="${SSH_CONNECTION%% *}"
+if [[ -z "$ssh_client_ip" ]]; then
+    ssh_client_ip="$(who am i 2>/dev/null | sed -n 's/.*(\(.*\)).*/\1/p')"
+fi
+if [[ "$ssh_client_ip" == 10.42.0.* ]]; then
+    echo "ERROR: you're connected over the cybersafe WiFi this script manages." >&2
+    echo "It stops hostapd mid-run, which will kill this session and leave the" >&2
+    echo "AP down. SSH to the Pi's router-side (Ethernet) IP instead, or run" >&2
+    echo "from a local console." >&2
+    exit 1
+fi
+
 echo "==> Installing packages (hostapd, dnsmasq, ipset, iptables-persistent)"
 export DEBIAN_FRONTEND=noninteractive
 apt update
