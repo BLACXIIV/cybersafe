@@ -129,6 +129,16 @@ def ensure_admin_data(app):
         )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_site_visits_user ON site_visits(user_id)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_site_visits_domain ON site_visits(domain)")
+        db.execute("""CREATE TABLE IF NOT EXISTS site_sessions (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id      INTEGER NOT NULL REFERENCES users(id),
+            domain       TEXT NOT NULL,
+            started_at   TIMESTAMP NOT NULL,
+            last_seen_at TIMESTAMP NOT NULL,
+            lookups      INTEGER NOT NULL DEFAULT 1
+        )""")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_site_sessions_user ON site_sessions(user_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_site_sessions_seen ON site_sessions(last_seen_at)")
         db.execute(
             "INSERT OR IGNORE INTO school_settings (id, school_name) VALUES (1, ?)",
             ("Cyber-S.A.F.E. School",),

@@ -104,6 +104,22 @@ CREATE TABLE site_visits (
 CREATE INDEX idx_site_visits_user ON site_visits(user_id);
 CREATE INDEX idx_site_visits_domain ON site_visits(domain);
 
+-- Activity windows per (student, domain): opened on the first lookup and
+-- extended while the device keeps resolving the domain within the gap.
+-- This is what "time spent" means at DNS level — there is no leave event,
+-- so last_seen_at is the honest end marker.
+CREATE TABLE site_sessions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id),
+    domain       TEXT NOT NULL,
+    started_at   TIMESTAMP NOT NULL,
+    last_seen_at TIMESTAMP NOT NULL,
+    lookups      INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX idx_site_sessions_user ON site_sessions(user_id);
+CREATE INDEX idx_site_sessions_seen ON site_sessions(last_seen_at);
+
 CREATE TABLE school_settings (
     id         INTEGER PRIMARY KEY CHECK (id = 1),
     school_name TEXT NOT NULL DEFAULT 'Cyber-S.A.F.E. School',

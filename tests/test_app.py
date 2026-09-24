@@ -791,6 +791,183 @@ def test_admin_activity_scopes_visits_to_the_right_student(client):
             db.commit()
 
 
+def test_activity_live_now_lists_active_voucher_students(client):
+    """Live now lists students holding an active voucher with their current
+    session: domain, running duration, start time, ongoing marker. An
+    expired voucher drops the student out of the live list but keeps their
+    history rows."""
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+
+    app = client.application
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM site_sessions WHERE domain LIKE '%.live.test'")
+        db.execute("DELETE FROM site_visits WHERE domain LIKE '%.live.test'")
+        db.execute("DELETE FROM vouchers WHERE code IN ('LIVE001', 'LIVEEXP')")
+        db.execute("DELETE FROM users WHERE username IN ('liveactive', 'liveexpired')")
+        db.execute("DELETE FROM levels WHERE level_number = 993")
+        db.execute("INSERT INTO levels (level_number, name) VALUES (993, 'Live Test')")
+        level_id = db.execute(
+            "SELECT id FROM levels WHERE level_number = 993"
+        ).fetchone()["id"]
+        for username, full_name in (
+            ("liveactive", "Liv Active"),
+            ("liveexpired", "Liv Expired"),
+        ):
+            db.execute(
+                """INSERT INTO users
+                   (full_name, username, email, password_hash, grade_section, role, is_password_set)
+                   VALUES (?, ?, ?, ?, 'Grade 10', 'student', 1)""",
+                (full_name, username, f"{username}@cybersafe.local",
+                 generate_password_hash("L1ve#Test99")),
+            )
+        active_id = db.execute(
+            "SELECT id FROM users WHERE username = 'liveactive'"
+        ).fetchone()["id"]
+        expired_id = db.execute(
+            "SELECT id FROM users WHERE username = 'liveexpired'"
+        ).fetchone()["id"]
+        db.execute(
+            """INSERT INTO vouchers (user_id, level_id, code, used_at, expires_at, ip_address)
+               VALUES (?, ?, 'LIVE001', CURRENT_TIMESTAMP, datetime('now', '+1 hours'), '10.42.0.201')""",
+            (active_id, level_id),
+        )
+        db.execute(
+            """INSERT INTO vouchers (user_id, level_id, code, used_at, expires_at, ip_address)
+               VALUES (?, ?, 'LIVEEXP', CURRENT_TIMESTAMP, datetime('now', '-1 hours'), '10.42.0.202')""",
+            (expired_id, level_id),
+        )
+        # The live row comes from site_sessions: started 10m ago, still seen
+        # 30s ago -> "ongoing". History below still reads site_visits.
+        db.execute(
+            """INSERT INTO site_sessions (user_id, domain, started_at, last_seen_at, lookups)
+               VALUES (?, 'fresh.live.test', datetime('now', '-10 minutes'), datetime('now', '-30 seconds'), 9)""",
+            (active_id,),
+        )
+        db.execute(
+            """INSERT INTO site_sessions (user_id, domain, started_at, last_seen_at, lookups)
+               VALUES (?, 'gone.live.test', datetime('now', '-1 hours'), datetime('now', '-30 minutes'), 4)""",
+            (expired_id,),
+        )
+        db.execute(
+            "INSERT INTO site_visits (user_id, domain) VALUES (?, 'gone.live.test')",
+            (expired_id,),
+        )
+        db.commit()
+
+    try:
+        _login_admin(client)
+        data = client.get("/admin/activity").data
+
+        # Only the active voucher holder appears in the live list, as an
+        # ongoing session with its domain and duration.
+        live_block = data.split(b'id="live_results"', 1)[1].split(b"</section>", 1)[0]
+        assert b"Liv Active" in live_block
+        assert b"fresh.live.test" in live_block
+        assert b"ongoing" in live_block
+        assert b"10m" in live_block
+        assert b"Liv Expired" not in live_block
+
+        # The expired student's visit still shows in the history below.
+        assert b"gone.live.test" in data
+    finally:
+        with app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM site_sessions WHERE domain LIKE '%.live.test'")
+            db.execute("DELETE FROM site_visits WHERE domain LIKE '%.live.test'")
+            db.execute("DELETE FROM vouchers WHERE code IN ('LIVE001', 'LIVEEXP')")
+            db.execute("DELETE FROM users WHERE username IN ('liveactive', 'liveexpired')")
+            db.execute("DELETE FROM levels WHERE level_number = 993")
+            db.commit()
+
+
+def test_log_site_visits_tracks_sessions(client):
+    """Each matched DNS lookup upserts a site_sessions row: repeats inside
+    the 5-minute gap extend it, a longer quiet opens a new one — while the
+    sparse site_visits log still throttles to one row per minute."""
+    import sqlite3
+    import sys
+    import os
+    from werkzeug.security import generate_password_hash
+    from database.db import get_db
+
+    sys.path.insert(
+        0, os.path.join(os.path.dirname(__file__), "..", "network")
+    )
+    import log_site_visits
+
+    app = client.application
+    username = "sessstudent"
+    ip = "10.42.0.211"
+
+    with app.app_context():
+        db = get_db()
+        db.execute("DELETE FROM site_sessions WHERE domain = 'sess.live.test'")
+        db.execute("DELETE FROM site_visits WHERE domain = 'sess.live.test'")
+        db.execute("DELETE FROM vouchers WHERE code = 'SESSTST'")
+        db.execute("DELETE FROM users WHERE username = ?", (username,))
+        db.execute("DELETE FROM levels WHERE level_number = 992")
+        db.execute("INSERT INTO levels (level_number, name) VALUES (992, 'Session Test')")
+        level_id = db.execute(
+            "SELECT id FROM levels WHERE level_number = 992"
+        ).fetchone()["id"]
+        db.execute(
+            """INSERT INTO users
+               (full_name, username, email, password_hash, grade_section, role, is_password_set)
+               VALUES ('Sess Student', ?, ?, ?, 'Grade 10', 'student', 1)""",
+            (username, f"{username}@cybersafe.local",
+             generate_password_hash("S3ss#Test99")),
+        )
+        user_id = db.execute(
+            "SELECT id FROM users WHERE username = ?", (username,)
+        ).fetchone()["id"]
+        db.execute(
+            """INSERT INTO vouchers (user_id, level_id, code, used_at, expires_at, ip_address)
+               VALUES (?, ?, 'SESSTST', CURRENT_TIMESTAMP, datetime('now', '+1 hours'), ?)""",
+            (user_id, level_id, ip),
+        )
+        db.commit()
+
+    conn = sqlite3.connect(app.config["DATABASE_PATH"])
+    conn.row_factory = sqlite3.Row
+    try:
+        def line(t):
+            return (f"Sep 24 {t}:00 dnsmasq[1]: 4 {ip}/40000 "
+                    f"query[A] sess.live.test from {ip}\n")
+
+        last_logged = {}
+        log_site_visits._record_line(conn, line("12:00"), last_logged)
+        log_site_visits._record_line(conn, line("12:02"), last_logged)
+        log_site_visits._record_line(conn, line("12:10"), last_logged)
+
+        rows = conn.execute(
+            """SELECT started_at, last_seen_at, lookups FROM site_sessions
+               WHERE user_id = ? AND domain = 'sess.live.test' ORDER BY id""",
+            (user_id,),
+        ).fetchall()
+        assert len(rows) == 2
+        assert rows[0]["lookups"] == 2   # 12:00 + 12:02 share one session
+        assert rows[1]["lookups"] == 1   # 12:10 is past the gap
+
+        # The sparse visit log throttled all three calls into one row.
+        assert conn.execute(
+            "SELECT COUNT(*) AS c FROM site_visits "
+            "WHERE user_id = ? AND domain = 'sess.live.test'",
+            (user_id,),
+        ).fetchone()["c"] == 1
+    finally:
+        conn.close()
+        with app.app_context():
+            db = get_db()
+            db.execute("DELETE FROM site_sessions WHERE domain = 'sess.live.test'")
+            db.execute("DELETE FROM site_visits WHERE domain = 'sess.live.test'")
+            db.execute("DELETE FROM vouchers WHERE code = 'SESSTST'")
+            db.execute("DELETE FROM users WHERE username = ?", (username,))
+            db.execute("DELETE FROM levels WHERE level_number = 992")
+            db.commit()
+
+
 def test_top_domains_groups_limits_and_buckets(client):
     """The donut data keeps the top 8 domains and folds the rest into Other.
 

@@ -32,6 +32,7 @@ DNS_LOG_PATH = os.environ.get("CYBERSAFE_DNS_LOG", "/var/log/cybersafe-dns.log")
 POLL_SECONDS = 0.5
 REOPEN_WAIT_SECONDS = 2
 THROTTLE_SECONDS = 60  # one row per (user, domain) per window; a page load fires many repeat lookups
+SESSION_GAP_SECONDS = 300  # quiet this long and the visit session is over (DNS sees no "leave" event)
 
 # Page-load record types only: PTR/SRV/TXT/DNSKEY are resolver chatter, and
 # HTTPS is the TLS-hint query browsers send alongside A/AAAA.
@@ -94,6 +95,32 @@ def _is_denied(domain):
     return any(domain == d or domain.endswith("." + d) for d in DOMAIN_DENYLIST)
 
 
+def _update_session(conn, user_id, domain, stamp):
+    """Upsert the open session for (user, domain): a lookup within
+    SESSION_GAP_SECONDS extends it, anything later starts a new one.
+    Runs on every matched query — unlike the throttled site_visits log —
+    so last_seen_at tracks real activity."""
+    stamp_str = stamp.strftime("%Y-%m-%d %H:%M:%S")
+    sess = conn.execute(
+        """SELECT id, last_seen_at FROM site_sessions
+           WHERE user_id = ? AND domain = ?
+           ORDER BY last_seen_at DESC LIMIT 1""",
+        (user_id, domain),
+    ).fetchone()
+    if sess is not None:
+        last = datetime.strptime(sess["last_seen_at"], "%Y-%m-%d %H:%M:%S")
+        if stamp - last <= timedelta(seconds=SESSION_GAP_SECONDS):
+            conn.execute(
+                "UPDATE site_sessions SET last_seen_at = MAX(last_seen_at, ?), lookups = lookups + 1 WHERE id = ?",
+                (stamp_str, sess["id"]),
+            )
+            return
+    conn.execute(
+        "INSERT INTO site_sessions (user_id, domain, started_at, last_seen_at) VALUES (?, ?, ?, ?)",
+        (user_id, domain, stamp_str, stamp_str),
+    )
+
+
 def _record_line(conn, line, last_logged):
     try:
         match = QUERY_RE.match(line)
@@ -112,16 +139,19 @@ def _record_line(conn, line, last_logged):
         ).fetchone()
         if voucher is None:
             return
+        stamp = _log_timestamp(match).replace(tzinfo=None)  # naive UTC, matching stored text
+        _update_session(conn, voucher["user_id"], domain, stamp)
         key = (voucher["user_id"], domain)
         now = time.monotonic()
-        if now - last_logged.get(key, -THROTTLE_SECONDS) < THROTTLE_SECONDS:
-            return
-        conn.execute(
-            "INSERT INTO site_visits (user_id, domain, visited_at) VALUES (?, ?, ?)",
-            (voucher["user_id"], domain, _log_timestamp(match).strftime("%Y-%m-%d %H:%M:%S")),
-        )
+        do_visit = now - last_logged.get(key, -THROTTLE_SECONDS) >= THROTTLE_SECONDS
+        if do_visit:
+            conn.execute(
+                "INSERT INTO site_visits (user_id, domain, visited_at) VALUES (?, ?, ?)",
+                (voucher["user_id"], domain, stamp.strftime("%Y-%m-%d %H:%M:%S")),
+            )
         conn.commit()
-        last_logged[key] = now
+        if do_visit:
+            last_logged[key] = now
     except sqlite3.Error:
         # A locked/busy DB drops the line instead of killing the daemon.
         conn.rollback()
@@ -144,9 +174,12 @@ def _rotated(log, path):
 
 
 def main():
+    # Exit 0 here would NOT be retried: the unit is Restart=on-failure, so a
+    # clean exit on boot (DB not created yet) stopped the daemon for good.
     if not os.path.exists(DB_PATH):
-        print(f"No database at {DB_PATH}, nothing to log.")
-        return
+        print(f"Waiting for database at {DB_PATH}", flush=True)
+    while not os.path.exists(DB_PATH):
+        time.sleep(REOPEN_WAIT_SECONDS)
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row

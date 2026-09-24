@@ -31,6 +31,11 @@ REPORT_PERIODS = {
 
 SUSCEPTIBLE_BADGES = ("Bronze", "Silver")
 
+# A voucher holder with no DNS lookup in this window is probably idle, not
+# "currently on" the last domain — the live list greys them out instead of
+# claiming they're still there.
+LIVE_STALE_SECONDS = 300
+
 # "Most visited sites" donut: slice colors are all existing stylesheet
 # accents; anything past the top N folds into an "Other" slice in muted grey.
 TOP_DOMAIN_LIMIT = 8
@@ -383,6 +388,27 @@ def _utc_to_local(iso):
         .replace(tzinfo=timezone.utc)
         .astimezone()
         .strftime("%Y-%m-%d %H:%M:%S")
+    )
+
+
+def _live_duration(delta):
+    """'<1m' / '12m' / '2h 5m' — observed length of a site session."""
+    secs = max(0, int(delta.total_seconds()))
+    if secs < 60:
+        return "<1m"
+    if secs < 3600:
+        return f"{secs // 60}m"
+    hours, mins = divmod(secs // 60, 60)
+    return f"{hours}h {mins}m" if mins else f"{hours}h"
+
+
+def _local_short(iso):
+    """'YYYY-MM-DD HH:MM:SS' UTC -> 'Sep 24, 14:32' in the server's timezone."""
+    return (
+        datetime.strptime(iso, "%Y-%m-%d %H:%M:%S")
+        .replace(tzinfo=timezone.utc)
+        .astimezone()
+        .strftime("%b %d, %H:%M")
     )
 
 
@@ -990,9 +1016,54 @@ def activity():
         for v in paginated
     ]
 
+    # "Live now": students holding an active voucher are the ones able to
+    # surf, so they're the live set — each shown with their latest session:
+    # the domain, how long it has run, and when it started.
+    live_rows = db.execute(
+        """SELECT u.full_name, u.username, u.grade_section,
+                  s.domain AS last_domain, s.started_at, s.last_seen_at
+           FROM users u
+           LEFT JOIN site_sessions s ON s.id = (
+               SELECT s2.id FROM site_sessions s2 WHERE s2.user_id = u.id
+               ORDER BY s2.last_seen_at DESC, s2.id DESC LIMIT 1)
+           WHERE u.role = 'student' AND EXISTS (
+               SELECT 1 FROM vouchers v
+               WHERE v.user_id = u.id AND v.used_at IS NOT NULL
+                 AND v.expires_at > datetime('now'))
+           ORDER BY s.last_seen_at DESC"""
+    ).fetchall()
+
+    now = datetime.utcnow()
+    live = []
+    for row in live_rows:
+        if row["last_seen_at"]:
+            last_seen = datetime.strptime(row["last_seen_at"], "%Y-%m-%d %H:%M:%S")
+            started = datetime.strptime(row["started_at"], "%Y-%m-%d %H:%M:%S")
+            age = (now - last_seen).total_seconds()
+            ongoing = age < LIVE_STALE_SECONDS
+            # Ongoing counts up to now; ended sessions show the observed span.
+            duration = _live_duration((now if ongoing else last_seen) - started)
+            detail = (
+                f"{duration} · ongoing since {_local_short(row['started_at'])}"
+                if ongoing else
+                f"{duration} · ended {_local_short(row['last_seen_at'])}"
+            )
+        else:
+            ongoing = False
+            detail = "no lookups yet"
+        live.append({
+            "full_name": row["full_name"],
+            "username": row["username"],
+            "grade_section": row["grade_section"],
+            "last_domain": row["last_domain"],
+            "detail": detail,
+            "stale": not ongoing,
+        })
+
     return render_template(
         "admin_activity.html",
         visits=paginated,
+        live=live,
         tz_label=_local_tz_label(),
         pagination=pagination,
         period=period,
