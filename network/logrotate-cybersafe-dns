@@ -5,6 +5,10 @@
     notifempty
     compress
     delaycompress
+    # dnsmasq creates the log with restrictive perms; logrotate's create
+    # wins after each rotation. 0644 so the pi-user daemon (and admin app)
+    # can read it without group juggling.
+    create 0644 dnsmasq adm
     sharedscripts
     postrotate
         # dnsmasq reopens its log file on SIGUSR2 (see the dnsmasq man page,

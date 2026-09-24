@@ -231,6 +231,7 @@ def main():
         print("site_sessions missing and could not be created; visits-only mode", flush=True)
 
     log = None
+    open_failed = False
     last_logged = {}
     print(f"Watching {DNS_LOG_PATH} -> {DB_PATH}", flush=True)
     while True:
@@ -238,7 +239,15 @@ def main():
         if log is None:
             try:
                 log = _open_log(DNS_LOG_PATH)
-            except OSError:
+                if open_failed:
+                    print(f"{DNS_LOG_PATH} readable again", flush=True)
+                    open_failed = False
+            except OSError as e:
+                # Log once per outage so journalctl names the cause —
+                # e.g. Permission denied when dnsmasq writes the log 0640.
+                if not open_failed:
+                    print(f"cannot open {DNS_LOG_PATH}: {e}", flush=True)
+                    open_failed = True
                 time.sleep(REOPEN_WAIT_SECONDS)  # dnsmasq may not have logged yet
                 continue
         pos = log.tell()

@@ -1011,6 +1011,29 @@ def test_record_line_degrades_to_visits_without_sessions_table(tmp_path):
     conn.close()
 
 
+def test_capture_status_reports_chain_health(tmp_path, monkeypatch):
+    """_capture_status names which link of the Pi capture chain is down so
+    the activity page can show the fix without shell access."""
+    import admin
+
+    dns_log = tmp_path / "cybersafe-dns.log"
+    dns_log.write_text("query\n")
+    heartbeat = tmp_path / "heartbeat"
+    heartbeat.write_text("x")
+    monkeypatch.setenv("CYBERSAFE_DNS_LOG", str(dns_log))
+    monkeypatch.setenv("CYBERSAFE_HEARTBEAT", str(heartbeat))
+
+    checks = {c["label"]: c["ok"] for c in admin._capture_status()}
+    assert checks["DNS log active"]
+    assert checks["Capture daemon running"]
+
+    monkeypatch.setenv("CYBERSAFE_DNS_LOG", str(tmp_path / "missing.log"))
+    monkeypatch.setenv("CYBERSAFE_HEARTBEAT", str(tmp_path / "missing.hb"))
+    checks = {c["label"]: c["ok"] for c in admin._capture_status()}
+    assert not checks["DNS log missing"]
+    assert not checks["Capture daemon not running"]
+
+
 def test_ensure_schema_creates_site_sessions(tmp_path):
     """The daemon creates the table itself on DBs that predate the
     migration — the safety net for a not-yet-restarted app."""

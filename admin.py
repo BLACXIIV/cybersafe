@@ -423,11 +423,20 @@ def _capture_status():
     dns_log = os.environ.get("CYBERSAFE_DNS_LOG", "/var/log/cybersafe-dns.log")
     try:
         age = now - os.path.getmtime(dns_log)
-        checks.append({
-            "ok": True,
-            "label": "DNS log active",
-            "hint": f"last write {int(age)}s ago",
-        })
+        if os.access(dns_log, os.R_OK):
+            checks.append({
+                "ok": True,
+                "label": "DNS log active",
+                "hint": f"last write {int(age)}s ago",
+            })
+        else:
+            # getmtime succeeds without read permission — a 0640 log would
+            # look "active" here while the daemon starves on Permission denied.
+            checks.append({
+                "ok": False,
+                "label": "DNS log unreadable",
+                "hint": "exists but not readable — sudo chmod 644 /var/log/cybersafe-dns.log",
+            })
     except OSError:
         checks.append({
             "ok": False,
