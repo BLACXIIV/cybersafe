@@ -937,9 +937,10 @@ def test_log_site_visits_tracks_sessions(client):
                     f"query[A] sess.live.test from {ip}\n")
 
         last_logged = {}
-        log_site_visits._record_line(conn, line("12:00"), last_logged)
-        log_site_visits._record_line(conn, line("12:02"), last_logged)
-        log_site_visits._record_line(conn, line("12:10"), last_logged)
+        ok = log_site_visits._record_line(conn, line("12:00"), last_logged)
+        ok = log_site_visits._record_line(conn, line("12:02"), last_logged, ok)
+        ok = log_site_visits._record_line(conn, line("12:10"), last_logged, ok)
+        assert ok
 
         rows = conn.execute(
             """SELECT started_at, last_seen_at, lookups FROM site_sessions
@@ -966,6 +967,69 @@ def test_log_site_visits_tracks_sessions(client):
             db.execute("DELETE FROM users WHERE username = ?", (username,))
             db.execute("DELETE FROM levels WHERE level_number = 992")
             db.commit()
+
+
+def test_record_line_degrades_to_visits_without_sessions_table(tmp_path):
+    """A DB that predates the site_sessions migration must not go silent:
+    the session upsert fails once, then visits keep recording."""
+    import sqlite3
+    import sys
+    import os
+
+    sys.path.insert(
+        0, os.path.join(os.path.dirname(__file__), "..", "network")
+    )
+    import log_site_visits
+
+    db_path = tmp_path / "old.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        """CREATE TABLE vouchers (
+            id INTEGER PRIMARY KEY, user_id INTEGER, code TEXT,
+            used_at TIMESTAMP, expires_at TIMESTAMP, ip_address TEXT)"""
+    )
+    conn.execute(
+        """CREATE TABLE site_visits (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER,
+            domain TEXT, visited_at TIMESTAMP)"""
+    )
+    conn.execute(
+        """INSERT INTO vouchers (user_id, code, used_at, expires_at, ip_address)
+           VALUES (7, 'OLD001', CURRENT_TIMESTAMP, datetime('now', '+1 hours'), '10.42.0.99')"""
+    )
+    conn.commit()
+
+    line = ("Sep 24 12:00:00 dnsmasq[1]: 4 10.42.0.99/40000 "
+            "query[A] degraded.live.test from 10.42.0.99\n")
+    last_logged = {}
+    ok = log_site_visits._record_line(conn, line, last_logged)
+    assert ok is False  # sessions unusable, flagged for the rest of the run
+    ok = log_site_visits._record_line(conn, line, last_logged, ok)
+    assert ok is False
+    assert conn.execute("SELECT COUNT(*) AS c FROM site_visits").fetchone()["c"] == 1
+    conn.close()
+
+
+def test_ensure_schema_creates_site_sessions(tmp_path):
+    """The daemon creates the table itself on DBs that predate the
+    migration — the safety net for a not-yet-restarted app."""
+    import sqlite3
+    import sys
+    import os
+
+    sys.path.insert(
+        0, os.path.join(os.path.dirname(__file__), "..", "network")
+    )
+    import log_site_visits
+
+    conn = sqlite3.connect(str(tmp_path / "fresh.db"))
+    assert log_site_visits._ensure_schema(conn)
+    conn.execute(
+        "INSERT INTO site_sessions (user_id, domain, started_at, last_seen_at) "
+        "VALUES (1, 'x.test', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+    )
+    conn.close()
 
 
 def test_top_domains_groups_limits_and_buckets(client):

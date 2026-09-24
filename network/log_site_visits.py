@@ -28,6 +28,10 @@ DEFAULT_DB_PATH = os.path.join(
 )
 DB_PATH = os.environ.get("CYBERSAFE_DB_PATH", DEFAULT_DB_PATH)
 DNS_LOG_PATH = os.environ.get("CYBERSAFE_DNS_LOG", "/var/log/cybersafe-dns.log")
+# Touched every loop so the admin activity page can tell a running daemon
+# from a dead one without shell access. /tmp is tmpfs: it can't survive a
+# reboot, so a stale heartbeat never fakes liveness.
+HEARTBEAT_PATH = os.environ.get("CYBERSAFE_HEARTBEAT", "/tmp/cybersafe-site-visits.heartbeat")
 
 POLL_SECONDS = 0.5
 REOPEN_WAIT_SECONDS = 2
@@ -95,6 +99,27 @@ def _is_denied(domain):
     return any(domain == d or domain.endswith("." + d) for d in DOMAIN_DENYLIST)
 
 
+def _ensure_schema(conn):
+    """Create site_sessions if the app's ensure_admin_data migration hasn't
+    run yet (older DB, app not restarted). Without it every matched line
+    would raise sqlite3.Error and even site_visits would stop recording."""
+    try:
+        conn.execute("""CREATE TABLE IF NOT EXISTS site_sessions (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id      INTEGER NOT NULL REFERENCES users(id),
+            domain       TEXT NOT NULL,
+            started_at   TIMESTAMP NOT NULL,
+            last_seen_at TIMESTAMP NOT NULL,
+            lookups      INTEGER NOT NULL DEFAULT 1
+        )""")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_site_sessions_user ON site_sessions(user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_site_sessions_seen ON site_sessions(last_seen_at)")
+        conn.commit()
+        return True
+    except sqlite3.Error:
+        return False
+
+
 def _update_session(conn, user_id, domain, stamp):
     """Upsert the open session for (user, domain): a lookup within
     SESSION_GAP_SECONDS extends it, anything later starts a new one.
@@ -121,14 +146,16 @@ def _update_session(conn, user_id, domain, stamp):
     )
 
 
-def _record_line(conn, line, last_logged):
+def _record_line(conn, line, last_logged, sessions_ok=True):
+    """Returns sessions_ok so a broken site_sessions table degrades to
+    visits-only logging instead of dropping every line forever."""
     try:
         match = QUERY_RE.match(line)
         if match is None or match["rtype"] not in RECORD_TYPES:
-            return
+            return sessions_ok
         domain = match["domain"].rstrip(".").lower()
         if not domain or _is_denied(domain):
-            return
+            return sessions_ok
         voucher = conn.execute(
             """SELECT user_id FROM vouchers
                WHERE ip_address = ? AND used_at IS NOT NULL
@@ -138,9 +165,15 @@ def _record_line(conn, line, last_logged):
             (match["client"],),
         ).fetchone()
         if voucher is None:
-            return
+            return sessions_ok
         stamp = _log_timestamp(match).replace(tzinfo=None)  # naive UTC, matching stored text
-        _update_session(conn, voucher["user_id"], domain, stamp)
+        if sessions_ok:
+            try:
+                _update_session(conn, voucher["user_id"], domain, stamp)
+            except sqlite3.Error:
+                conn.rollback()
+                sessions_ok = False
+                print("site_sessions unusable; continuing with visits only", flush=True)
         key = (voucher["user_id"], domain)
         now = time.monotonic()
         do_visit = now - last_logged.get(key, -THROTTLE_SECONDS) >= THROTTLE_SECONDS
@@ -155,6 +188,16 @@ def _record_line(conn, line, last_logged):
     except sqlite3.Error:
         # A locked/busy DB drops the line instead of killing the daemon.
         conn.rollback()
+    return sessions_ok
+
+
+def _heartbeat():
+    try:
+        fd = os.open(HEARTBEAT_PATH, os.O_WRONLY | os.O_CREAT, 0o644)
+        os.close(fd)
+        os.utime(HEARTBEAT_PATH)
+    except OSError:
+        pass
 
 
 def _open_log(path):
@@ -183,11 +226,15 @@ def main():
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    sessions_ok = _ensure_schema(conn)
+    if not sessions_ok:
+        print("site_sessions missing and could not be created; visits-only mode", flush=True)
 
     log = None
     last_logged = {}
     print(f"Watching {DNS_LOG_PATH} -> {DB_PATH}", flush=True)
     while True:
+        _heartbeat()
         if log is None:
             try:
                 log = _open_log(DNS_LOG_PATH)
@@ -206,7 +253,7 @@ def main():
                 continue
             time.sleep(POLL_SECONDS)
             continue
-        _record_line(conn, line, last_logged)
+        sessions_ok = _record_line(conn, line, last_logged, sessions_ok)
 
 
 if __name__ == "__main__":

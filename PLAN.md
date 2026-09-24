@@ -26,6 +26,14 @@ voucher -> inserts `site_visits` rows -> `/admin/activity` lists them.
 - `log_site_visits.py` now waits for the DB instead of exiting cleanly —
   a clean exit was never retried by `Restart=on-failure`, a likely cause
   of total silence.
+- Activity page: capture-status chips inside Live now — "DNS log
+  active/missing" + "daemon running/stalled/not running", each failure
+  carrying its fix command, refreshed with the 10s poll. Daemon writes a
+  heartbeat file every loop (/tmp, so it can't fake liveness after reboot).
+- Daemon resilience: `_ensure_schema` creates site_sessions itself if the
+  app migration hasn't run yet; if it still fails, the daemon degrades to
+  visits-only logging instead of dropping every line (that failure mode
+  would have silently killed ALL recording on an un-migrated Pi DB).
 
 ### Remaining — get capture working on the Pi
 

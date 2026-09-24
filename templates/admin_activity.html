@@ -27,6 +27,14 @@
         <h2>Live now</h2>
         <span>{{ live | length }} online</span>
       </div>
+      <div class="capture-status">
+        {% for c in capture %}
+          <span class="capture-chip {{ 'capture-ok' if c.ok else 'capture-fail' }}"{% if c.hint %} title="{{ c.hint }}"{% endif %}>{{ c.label }}</span>
+        {% endfor %}
+      </div>
+      {% for c in capture if not c.ok %}
+        <p class="admin-muted capture-hint">{{ c.label }}: {{ c.hint }}</p>
+      {% endfor %}
       {% if live %}
         <div class="ranking-list">
           {% for row in live %}

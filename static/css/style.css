@@ -1430,6 +1430,11 @@ button.nav-user { cursor: pointer; }
 .ranking-page-info { color: var(--text-secondary); font-size: 0.75rem; }
 .live-dot { display: inline-block; width: 7px; height: 7px; margin-right: 0.35rem; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); vertical-align: 1px; }
 .live-stale { opacity: 0.55; }
+.capture-status { display: flex; gap: 0.45rem; flex-wrap: wrap; margin: 0.4rem 0 0.6rem; }
+.capture-chip { font-size: 0.7rem; padding: 0.2rem 0.6rem; border-radius: 999px; border: 1px solid transparent; }
+.capture-ok { color: var(--accent-green); background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.25); }
+.capture-fail { color: var(--accent-orange); background: rgba(245,158,11,.1); border-color: rgba(245,158,11,.3); }
+.capture-hint { font-size: 0.75rem; margin: 0.15rem 0 0.4rem; }
 .btn.disabled { opacity: .45; pointer-events: none; cursor: default; color: var(--text-tertiary); }
 .admin-muted { margin: 0; color: var(--text-secondary); font-size: 0.8rem; }
 

@@ -2,6 +2,7 @@ import csv
 import os
 import re
 import sqlite3
+import time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO, StringIO
@@ -410,6 +411,50 @@ def _local_short(iso):
         .astimezone()
         .strftime("%b %d, %H:%M")
     )
+
+
+def _capture_status():
+    """Health of the Pi-side capture chain for the activity page. Two links
+    can independently break: dnsmasq writing the query log, and the
+    site-visits daemon tailing it. Each failing link gets a fix hint."""
+    checks = []
+    now = time.time()
+
+    dns_log = os.environ.get("CYBERSAFE_DNS_LOG", "/var/log/cybersafe-dns.log")
+    try:
+        age = now - os.path.getmtime(dns_log)
+        checks.append({
+            "ok": True,
+            "label": "DNS log active",
+            "hint": f"last write {int(age)}s ago",
+        })
+    except OSError:
+        checks.append({
+            "ok": False,
+            "label": "DNS log missing",
+            "hint": "dnsmasq isn't writing /var/log/cybersafe-dns.log — "
+                    "install network/dnsmasq-ap.conf to /etc/dnsmasq.d/ and restart dnsmasq",
+        })
+
+    heartbeat = os.environ.get("CYBERSAFE_HEARTBEAT", "/tmp/cybersafe-site-visits.heartbeat")
+    try:
+        age = now - os.path.getmtime(heartbeat)
+        if age < 15:
+            checks.append({"ok": True, "label": "Capture daemon running", "hint": ""})
+        else:
+            checks.append({
+                "ok": False,
+                "label": "Capture daemon stalled",
+                "hint": f"heartbeat {int(age)}s old — sudo systemctl restart cybersafe-site-visits",
+            })
+    except OSError:
+        checks.append({
+            "ok": False,
+            "label": "Capture daemon not running",
+            "hint": "sudo systemctl enable --now cybersafe-site-visits "
+                    "(re-run network/setup_ap.sh if the unit is missing)",
+        })
+    return checks
 
 
 def _local_tz_label():
@@ -1064,6 +1109,7 @@ def activity():
         "admin_activity.html",
         visits=paginated,
         live=live,
+        capture=_capture_status(),
         tz_label=_local_tz_label(),
         pagination=pagination,
         period=period,
