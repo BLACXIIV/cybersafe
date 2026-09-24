@@ -256,7 +256,7 @@
               <strong class="ranking-position">{{ pagination.start_rank + loop.index }}</strong>
               <div class="ranking-name">
                 <strong>{{ student['full_name'] }}{% if not student['is_active'] %} <span class="suspended-tag">suspended</span>{% endif %}</strong>
-                <small>{{ student['grade_section'] or 'No grade' }} · {{ student['current_title'] }}</small>
+                <small>{{ student['username'] }} · {{ student['grade_section'] or 'No grade' }} · {{ student['current_title'] }}</small>
               </div>
               <div class="ranking-stats">
                 <strong>{{ student['points'] }} <small>pts</small></strong>
