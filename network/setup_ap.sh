@@ -67,6 +67,12 @@ install -m 644 "$REPO_DIR/network/systemd/hostapd.service.d-override.conf" /etc/
 mkdir -p /etc/systemd/system/netfilter-persistent.service.d
 install -m 644 "$REPO_DIR/network/systemd/netfilter-persistent.service.d-override.conf" /etc/systemd/system/netfilter-persistent.service.d/override.conf
 
+echo "==> Making the DNS query log readable to the visit logger (and the admin app)"
+mkdir -p /etc/systemd/system/dnsmasq.service.d
+install -m 644 "$REPO_DIR/network/systemd/dnsmasq.service.d-override.conf" /etc/systemd/system/dnsmasq.service.d/override.conf
+# Heal the permissions on a log file that already exists from before the drop-in.
+chmod 644 /var/log/cybersafe-dns.log 2>/dev/null || true
+
 echo "==> Installing the privileged helper + sudoers rule"
 install -m 755 -o root -g root "$REPO_DIR/network/cybersafe-grant-access" /usr/local/sbin/cybersafe-grant-access
 install -m 440 -o root -g root "$REPO_DIR/network/sudoers-cybersafe" /etc/sudoers.d/cybersafe

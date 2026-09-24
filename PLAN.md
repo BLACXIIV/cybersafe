@@ -34,6 +34,17 @@ voucher -> inserts `site_visits` rows -> `/admin/activity` lists them.
   app migration hasn't run yet; if it still fails, the daemon degrades to
   visits-only logging instead of dropping every line (that failure mode
   would have silently killed ALL recording on an un-migrated Pi DB).
+- Log permission self-heals: dnsmasq.service.d drop-in sets UMask=0022 so
+  dnsmasq-created logs are 0644 (readable by the pi-user daemon), logrotate
+  `create 0644` covers rotated files, setup_ap.sh chmods any existing log.
+
+### Plug-and-play across routers (verified by design)
+
+Nothing is router-specific: MASQUERADE is `-o eth0` (interface, not IP),
+eth0 DHCPs from whatever router it lands on, upstream DNS is public
+(1.1.1.1/8.8.8.8), students live on wlan0's own 10.42.0.x subnet.
+Moving routers = plug in eth0, done. Only caveat: a router using
+10.42.0.0/24 for its own LAN would collide (rare; most are 192.168.x).
 
 ### Remaining — get capture working on the Pi
 
